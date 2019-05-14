@@ -22,8 +22,8 @@
 
 	<description>
 		Arbeitskreis Physical Computing am IKG.
-		Ansteuerung aller Leistungsausgänge.
-		Die Kommandos sind als 'powerN_OFF' bzw. 'powerN_ON' für scratch bezeichnet.
+		Ansteuerung aller Leistungsausg辰nge.
+		Die Kommandos sind als 'powerN_OFF' bzw. 'powerN_ON' f端r scratch bezeichnet.
 		Jumper: 
 			gesetzt:
 			    out.0 bis out.7 alle gesetzt.

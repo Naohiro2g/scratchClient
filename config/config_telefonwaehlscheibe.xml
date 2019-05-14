@@ -38,7 +38,7 @@
 
 	<!-- =========================================================================== -->
 	<adapter class='adapter.encoder.GPIODialPlateEncoder'  name='dial_A'>
-		<description>Wählscheibe.
+		<description>W辰hlscheibe.
 		Anschluss: NSI (Impuls) 
 		           NSA (Drehschalter)
 		</description>

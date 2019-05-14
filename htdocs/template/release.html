@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+% if debug:
+<!-- htdocs/template/release.html start -->
+% endif
+<html>
+    <%include file="../template/header.html" />
+   <body>
+
+	<h1>ScratchClient, Version</h1>
+	
+	<p>version date is  ${version}</p>
+	<p/>
+	<table class='version'>
+	    <tbody>
+        % for n in changes: 
+            <tr> <td class='version'> ${n[0]} </td>  <td class='version'> ${n[1]} </td>  </tr>
+        % endfor
+        </tbody>
+	</table>
+    
+    <%include file="../template/footer.html" />
+   </body>
+</html>
+% if debug:
+<!-- htdocs/template/release.html end -->
+% endif

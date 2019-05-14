@@ -28,6 +28,8 @@ import serial
 import os
 import traceback
 import sys
+import re
+from symbol import parameters
 
 if os.name == 'posix':
     import termios
@@ -56,6 +58,8 @@ debug_1_verbose = False
 debug_2_blink   = False
 #
 # ----------------------------------------------------------
+debug = False
+# ----------------------------------------------------------
 #
 # show lines received/send from serial line
 #
@@ -64,16 +68,49 @@ show = False
 # --------------------------------------------------------------------------------------
 
 
-class UNO_Adapter (adapter.adapters.Adapter):
-    """Interface to UNO, Arduino Serial adapter 
+class UNO_Adapter (adapter.adapters.NANOAdapter):
+    """Interface to UNO, Arduino Serial adapter
+     
+    Connection setup is using a state machine, When something does not work, then
+    retrys are executed with wait cycles.
+    
+    When connection is established, then wait for 'config?' arrives.
+    request ident code
+    
+    if ident.check, then validate and if no match then loop endless with error code
+    
+    configure in and out
+    when configuration complete, then open the channel to send data
+    this is accomplished by puttin a #configured-token to the send channel. When this is
+    arriving, then the previous commands are send out.
+    
+    on arduino reset, config? reappears and indicates a new cycle is starting.
+    
+    on adapter stop/start, keep connection to arduino NOT open (may re-enumerate connection) , disable data send
+     
     """
     
     parameter_SERIAL_DEVICE = 'serial.device'
     parameter_SERIAL_BAUD = 'serial.baud'
 
-    mandatoryParameters = { parameter_SERIAL_DEVICE: 'COM6',
-                           parameter_SERIAL_BAUD : '115200'
+    #
+    # Connection details.
+    # 
+    mandatoryParameters = { 
+                            parameter_SERIAL_DEVICE: 'COM6',
+                            parameter_SERIAL_BAUD : '115200'
                           }
+    #
+
+    parameter_IDENT_CHECK = 'ident.check'
+    parameter_IDENT_PATTERN = 'ident.pattern'
+
+    optionalParameters = {
+                            # checking ident from arduino
+                            parameter_IDENT_CHECK : 'yes',
+                            parameter_IDENT_PATTERN : 'NANO_000',
+                          }
+    #
     VOID = 'void'
     IN = 'in'
     OUT = 'out'
@@ -199,28 +236,59 @@ class UNO_Adapter (adapter.adapters.Adapter):
         self._set_SERVO(value, 13)
       
     def _set_IO(self, value, bitvalue):
-        """set Port to a specific value"""
-        bValue = self.isTrue(value)
-        if bValue:
+        """set Port to a specific value
+           ignore empty values."""
+        try:
+            if value.strip() == '':
+                return
+        except Exception:
+            pass
+
+        if  self.isTrue(value):
             #self.queue.put("out:{bit:02d},1".format(bit=bitvalue))
             self._queue_put("o:{bit:d}".format(bit=bitvalue), "o{bit:d},1".format(bit=bitvalue))
-        else:
+        
+        elif self.isFalse(value):
             # self.queue.put("out:{bit:02d},0".format(bit=bitvalue))
             self._queue_put("o:{bit:d}".format(bit=bitvalue), "o{bit:d},0".format(bit=bitvalue))
+        
+        else:
+            logger.warning("{n:s}: Digital IO needs booleanType (1|TRUE|YES|Y|HIGH)|(0|FALSE|NO|N|LOW), got '{v:s}'".format(n=self.name, v = str(value) )  )
 
     def _set_A_IO(self, value, bitvalue):
-        """set PortA to a specific value"""
-        bValue = self.isTrue(value)
-        if bValue:
+        """set PortA to a specific value
+           ignore empty values."""
+        try:
+            if value.strip() == '':
+                return
+        except Exception:
+            pass
+
+        if self.isTrue(value):
             #self._queue_put("out:{bit:02d},1".format(bit=bitvalue))
             self._queue_put("oa:{bit:d}".format(bit=bitvalue), "oa{bit:d},1".format(bit=bitvalue))
-        else:
+        
+        elif self.isFalse(value):
             # self._queue_put("out:{bit:02d},0".format(bit=bitvalue))
             self._queue_put("oa:{bit:d}".format(bit=bitvalue), "oa{bit:d},0".format(bit=bitvalue))
 
+        else:
+            logger.warning("{n:s}: Analog IO needs booleanType (1|TRUE|YES|Y|HIGH)|(0|FALSE|NO|N|LOW), got '{v:s}'".format(n=self.name, v = str(value) )  )
+            
     def _set_PWM(self, value, bitvalue):
-        """set PWM for UNO, value range 0..255"""
-        v = int(float(value))
+        """set PWM for UNO, value range 0..255.
+           ignore empty values; check other values and report problem."""
+        try:
+            if value.strip() == '':
+                return
+        except Exception:
+            pass
+
+        try:
+            v = int(float(value))
+        except Exception:
+            logger.warning("{n:s}: pwm needs numerical value 0..255, got '{v:s}'".format(n=self.name, v = str(value) )  )
+            return
         if v < 0:
             v = 0
         if v > 255:
@@ -229,8 +297,19 @@ class UNO_Adapter (adapter.adapters.Adapter):
         self._queue_put("p:{bit:d}".format( bit=bitvalue), "p{bit:d},{value:d}".format( bit=bitvalue, value=v ))
 
     def _set_SERVO(self, value, bitvalue):
-        """set SERVO for UNO, value range 0..180"""
-        v = int(float(value))
+        """set SERVO for UNO, value range 0..180.
+           ignore empty values; check other values and report problem."""
+        try:
+            if value.strip() == '':
+                return
+        except Exception:
+            pass
+        
+        try:
+            v = int(float(value))
+        except Exception:
+            logger.warning("{n:s}: servo needs numerical value 0..180, got '{v:s}'".format(n=self.name, v = str(value) )  )
+            return
         if v < 0:
             v = 0
         if v > 180:
@@ -249,10 +328,15 @@ class UNO_Adapter (adapter.adapters.Adapter):
         self.queue_command = helper.abstractQueue.PriorityQueue()
         self.stateMachine = UNO_Adapter.StateMachine(self)
         self.lastInputValue = {}
+        self.reported_xff_problem = False
         
     def setActive(self, state):
         adapter.adapters.Adapter.setActive(self, state)
 
+        self.ident_check = self.isTrue( self.parameters.get( self.parameter_IDENT_CHECK, 'no') )
+        if self.ident_check:
+            self.ident_pattern = self.parameters.get( self.parameter_IDENT_PATTERN )
+            
         if state:
             # clear 'old' values on new connections
             self.lastInputValue = {}
@@ -287,7 +371,9 @@ class UNO_Adapter (adapter.adapters.Adapter):
         self.queue_command.put( 1, s )
          
     # definitions for an atmel328 processor as available on arduino uno or arduino nano
-        
+    # there are additional constraints: when servo is enabled, then
+    #      pwm on pin 9, 10 is not possible
+    #
     io_options = { 
           'D0' :  { 'pos': 0,  'ifunc' : _setInput_IO_0, 'pfunc' : _setInput_PWM_0,'sfunc' : _setInput_SERVO_0, 'options': ['void']},
           'D1' :  { 'pos': 1,  'ifunc' : _setInput_IO_1, 'pfunc' : _setInput_PWM_1,'sfunc' : _setInput_SERVO_1, 'options': ['void']},
@@ -395,7 +481,7 @@ class UNO_Adapter (adapter.adapters.Adapter):
                         # function prototypes as in the various output functions.
                         # The prototypes are only needed to allow for matching the functions with configuration.
                         #
-                        setattr(self, "counter" + _id, self._sendValue ) 
+                        setattr(self, "output" + _id, self._sendValue ) 
                         pass
                     elif _dir == self.COUNTER:
                         self._digital_counter |= ( 1 << self.io_options[_id]['pos'])
@@ -489,7 +575,12 @@ class UNO_Adapter (adapter.adapters.Adapter):
                         self._analog_digital_outputs |= ( 1 << self.analog_options[_id]['pos'])
                         if debug_0_debug:
                             print("register ", "output" + _id )
-                        method = MethodType(self.analog_options[_id]['ifunc'], self, type(self))
+
+                        if sys.version_info.major == 2:
+                            method = MethodType( self.analog_options[_id]['ifunc'], self, type(self) )
+                        if sys.version_info.major >= 3:
+                            method = MethodType( self.analog_options[_id]['ifunc'], self )
+                        
                         if debug_0_debug:
                             print("register ", "input" + _id )
                         setattr(self, "input" + _id, method )  
@@ -502,7 +593,10 @@ class UNO_Adapter (adapter.adapters.Adapter):
     ##
     ## ------------------------------------------
     ##
-    def actionConnect(self, log=True):
+    LOG_ON_CONNECT_FAILURE = True
+    LOG_ON_CONNECT_SUCCESS = False
+    
+    def actionConnect(self, log=LOG_ON_CONNECT_FAILURE):
         """  
             log=True: log on connect failure
             log=False: log on connect success
@@ -514,21 +608,29 @@ class UNO_Adapter (adapter.adapters.Adapter):
             self.ser = serial.Serial(self.parameters[self.parameter_SERIAL_DEVICE],
                          int(self.parameters[self.parameter_SERIAL_BAUD]),
                          timeout=0.1 )
-            if log == False:
+            if log == self.LOG_ON_CONNECT_SUCCESS:
                 with helper.logging.LoggingContext(logger, level=logging.DEBUG):
                     logger.info("{n:s}: connection established to arduino".format(n=self.name))
                 
         except serial.SerialException as e:
-            if log:
-                logger.error("{n:s}: no connection to {s:s} {e:s}".format(n=self.name, s=self.parameters[self.parameter_SERIAL_DEVICE], e=e))
+            if log == self.LOG_ON_CONNECT_FAILURE:
+                logger.error("{n:s}: no connection to {s:s} {e:s}".format(n=self.name, s=self.parameters[self.parameter_SERIAL_DEVICE], e=str(e)))
             return "fail"
+        
         except Exception as e:
             traceback.print_exc()
-            logger.error("{n:s}: no connection to {s:s} {e:s}".format(n=self.name, s=self.parameters[self.parameter_SERIAL_DEVICE], e=e))
+            logger.error("{n:s}: no connection to {s:s} {e:s}".format(n=self.name, s=self.parameters[self.parameter_SERIAL_DEVICE], e=str(e) ))
             return "fail"
         return "success"
     
-     
+    
+    def report_xff_problem(self):
+        if self.reported_xff_problem:
+            pass
+        else:
+            logger.error("{n:s}: arduino sends 0xff, possibly an old firmware".format(n=self.name ))
+            self.reported_xff_problem = True
+             
     def actionLock(self):
         """  success
             fail """
@@ -557,140 +659,282 @@ class UNO_Adapter (adapter.adapters.Adapter):
             traceback.print_exc()
             return 'fail'
         return "success"
+    
+    RECEIVE_START_START = 0
+    RECEIVE_START_RESET_0 = 1
+    RECEIVE_START_RESET_1 = 2
+    RECEIVE_START_RESET_2 = 3
+    RECEIVE_START_RUNNING = 4
+    RECEIVE_INVALID_IDENT = 100
+
+    protocolStateMapper = { 
+                            RECEIVE_START_START: "RECEIVE_START_START",
+                            RECEIVE_START_RESET_0: "RECEIVE_START_RESET_0",
+                            RECEIVE_START_RESET_1: "RECEIVE_START_RESET_1",
+                            RECEIVE_START_RESET_2: "RECEIVE_START_RESET_2",
+                            RECEIVE_START_RUNNING: "RECEIVE_START_RUNNING",
+                            RECEIVE_INVALID_IDENT: "RECEIVE_INVALID_IDENT",
+                           }
+    
      
     def _runReceive(self):
-        logger.debug("_runReceive %s", "start")
+        """there is a simple state flow for this thread 'RECEIVE_*'
+        """
+        logger.debug("{n:s}: _runReceive {c:s}".format( n=self.name, c="start") )
+        
+        self.protocolState = UNO_Adapter.RECEIVE_START_START
+
+        last_protocolState = None
         while not self._stopped:
+            
+            if debug:
+                if last_protocolState != self.protocolState:
+                    print("protocolState", self.protocolState, self.protocolStateMapper.get( self.protocolState))
+                    last_protocolState = self.protocolState
+                    
             try:
+                line = ''
                 line = self.ser.readline()
+                
             except serial.SerialException as e:
                 self.state_arduinoConfigured = "undef"
                 self.stateMachine.serialError()
                 break
             except Exception as e:
                 traceback.print_exc()
-                
                 continue
             
-            if sys.version_info.major == 3:
-                line = line.decode('ascii')
+            # print(line, type(line) )
+            if len(line) == 0:
+                continue
+            
+            # there are old arduino programs around which send 0xff as part of the ident code
+            # remove these bytes
+            line2 = bytearray( line)
+            # print(line2, type(line2) )
+            # line2 = line2.replace( b' ', b'\xff' )
+            
+            xff_problem = False
+            for bi in range(0, len(line2) ):
+                c = line2[bi]
+                if c == 0xff:
+                    xff_problem = True
+            if xff_problem:
+                self.report_xff_problem() 
+                line2 = line2.replace(  b'\xff', b' ')
                 
-            if ( line == ''):
+            if sys.version_info.major == 3:
+                line = line2.decode('ascii')
+                
+            if line.rstrip() == '':
                 continue 
             
             line = line.rstrip()
             if show or debug_0_debug or debug_1_verbose:
                 with helper.logging.LoggingContext(logger, level=logging.DEBUG):
                     # print ( type(line), line)
-                    logger.info("serial  in: {l:s}".format( l=line )) 
+                    logger.info("{n:s}: serial in: {l:s}".format( n=self.name, l=line )) 
                 
-            if line.startswith( 'config?' ):
-                if show: print("found config request")
-                
-                #if debug_0_debug:
-                #    self._queue_put_prio("help")
-                    
-                if debug_0_debug or debug_1_verbose or debug_2_blink:    
-                    xdebug = 0
-                    if debug_0_debug:
-                        xdebug |= 1
-                    if debug_1_verbose:
-                        xdebug |= 2 
-                    if debug_2_blink:
-                        xdebug |= 4
-                    self._queue_put_prio("cdebug:{data:04x}".format(data= xdebug))
-                    
-                self._queue_put_prio("cversion?")
-                
-                self._queue_put_prio("cident?")
-                #self.queue.put("cident:NANO_000")
-                
-                if self._analog_analog_inputs != 0:
-                    self._queue_put_prio("caain:{data:04x}".format(data=self._analog_analog_inputs))  
-                
-                if self._analog_digital_inputs != 0:
-                    self._queue_put_prio("cadin:{data:04x}".format(data=self._analog_digital_inputs))  
-                
-                if self._analog_digital_input_pullups != 0:
-                    self._queue_put_prio("cadinp:{data:04x}".format(data=self._analog_digital_input_pullups))  
-                
-                if self._analog_digital_outputs != 0:
-                    self._queue_put_prio("cadout:{data:04x}".format(data=self._analog_digital_outputs))
-                
-                if self._digital_inputs != 0:  
-                    self._queue_put_prio("cdin:{data:04x}".format(data=self._digital_inputs))
-                
-                if self._digital_input_pullups != 0:  
-                    self._queue_put_prio("cdinp:{data:04x}".format(data=self._digital_input_pullups))
-                
-                if self._digital_counter != 0:  
-                    self._queue_put_prio("cdcnt:{data:04x}".format(data=self._digital_counter))
-                
-                if self._digital_counter_pullups != 0:  
-                    self._queue_put_prio("cdcntp:{data:04x}".format(data=self._digital_counter_pullups))
-                
-                if self._digital_outputs != 0:
-                    self._queue_put_prio("cdout:{data:04x}".format(data=self._digital_outputs))
-                
-                if self._digital_pwms != 0:
-                    self._queue_put_prio("cdpwm:{data:04x}".format(data=self._digital_pwms))
-                
-                if self._digital_servos != 0:   
-                    self._queue_put_prio("cdservo:{data:04x}".format(data=self._digital_servos))
-                
-                self._queue_put_prio("#CONFIGURED")
-                
-            elif line.startswith( 'arduino' ):
+            if line.startswith( 'arduino' ):
                 # ignore 'arduino sending@115200 Bd'
                 # ignore 'arduinoUno, version 2017-01-27'
+                continue
+            
+            if self.protocolState == UNO_Adapter.RECEIVE_START_START:
+                if line.startswith( 'config?' ):
+                    if show: print("found config request RECEIVE_START_START")
+                    self.protocolState = UNO_Adapter.RECEIVE_START_RESET_0
+                    continue
+                
+                continue
+            
+            elif self.protocolState == UNO_Adapter.RECEIVE_START_RESET_0:
+                if line.startswith( 'config?' ):
+                    if show: print("found config request RECEIVE_START_RESET_0")
+                
+                    self._queue_put_prio("cident?")
+                    self.protocolState = UNO_Adapter.RECEIVE_START_RESET_1
+                    continue
+                
+                continue
+            
+            elif self.protocolState == UNO_Adapter.RECEIVE_START_RESET_1:
+                if line.startswith( 'config?' ):
+                    if show: print("found config request RECEIVE_START_RESET_1")
+                    continue
+                
+                if line.startswith( 'ident:' ):
+                    if self.ident_check:
+                        ce = self.ident_pattern.strip()
+                        ci = line[6:].strip()
+
+                        checked = False
+
+                        if not checked:
+                            if ce == ci:
+                                logger.info("{n:s} correct ident. Found '{ci:s}' expected '{ce:s}'".format(n=self.name, ci=ci, ce=ce))
+                                self.protocolState = UNO_Adapter.RECEIVE_START_RESET_2
+                                checked = True
+                        
+                        if not checked:
+                            if '' == ci:
+                                logger.warn("{n:s} ident from arduino is empty, accepted".format(n=self.name) )
+                                self.protocolState = UNO_Adapter.RECEIVE_START_RESET_2
+                                checked = True
+                        
+                        if not checked:
+                            try:
+                                p = re.compile ( ce )
+                                m = p.match ( ci )
+                                if m != None:
+                                    start, stop = m.span()
+                                    # print(start, stop)
+                                    if stop == len(ci):
+                                        logger.info("{n:s} regular pattern matches, found '{ci:s}' expected '{ce:s}'".format(n=self.name, ci=ci, ce=ce))
+                                        self.protocolState = UNO_Adapter.RECEIVE_START_RESET_2
+                                        checked = True
+                            except Exception as e:
+                                # traceback.print_exc()
+                                logger.error("{n:s} wrong regex: '{ce:s}' {m:s}".format(n=self.name, ce=ce, m=str(e)))
+                                self.protocolState = UNO_Adapter.RECEIVE_START_START
+                                checked = True
+                        
+                        if not checked:
+                            logger.error("{n:s} wrong ident. Found '{ci:s}' expected '{ce:s}'".format(n=self.name, ci=ci, ce=ce))
+                            self.protocolState = UNO_Adapter.RECEIVE_START_START
+                    else:
+                        self.protocolState = UNO_Adapter.RECEIVE_START_RESET_2
+                    continue
+                                
+            elif self.protocolState == UNO_Adapter.RECEIVE_INVALID_IDENT:
                 pass
-            elif line.startswith( 'ident:' ):
-                pass
-            #
-            elif line.startswith( 'v:' ):
-                pass
-            #
-            elif line.startswith( 'ai' ):
-                x = line[2:].split(',')
-                port  = x[0]
-                value = x[1]
-                # print("port", port, "value", value)
-                self.sendValueByName( 'outputA' + port,  value)
-            #
-            elif line.startswith( 'i' ):
-                x = line[1:].split(',')
-                port  = x[0]
-                value = x[1]
-                # print("port", port, "value", value)
-                self.sendValueByName( 'outputD' + port,  value)
-            #
-            # counter values are hex
-            #
-            elif line.startswith( 'c' ):
-                x = line[1:].split(',')
-                port  = x[0]
-                value = x[1]
-                # counters are transmitted as HEX values
-                value = int(value, 16)
-                # print("port", port, "value", value)
-                self.sendValueByName( 'outputD' + port,  value)
-            #
-            elif line.startswith( 'a' ):
-                try:
-                    x = line[1:].split(',')
-                    port  = x[0]
-                    value = x[1]
-                    # print("port", port, "value", value)
-                    self.sendValueByName( 'outputA' + port,  value)
-                except IndexError:
-                    print("IndexError")
-            #
-            elif line.startswith( 'e:' ):
-                logger.info("error count " + line)
-            else:
-                logger.info("undefined: " + line)
+            
+            elif self.protocolState == UNO_Adapter.RECEIVE_START_RESET_2:
+                
+                if line.startswith( 'config?' ):
+                    
+                    if debug_0_debug or debug_1_verbose or debug_2_blink:    
+                        xdebug = 0
+                        if debug_0_debug:
+                            xdebug |= 1
+                        if debug_1_verbose:
+                            xdebug |= 2 
+                        if debug_2_blink:
+                            xdebug |= 4
+                        self._queue_put_prio("cdebug:{data:04x}".format(data= xdebug))
+                        
+                    self._queue_put_prio("cversion?")
+                    
+                    if self._analog_analog_inputs != 0:
+                        self._queue_put_prio("caain:{data:04x}".format(data=self._analog_analog_inputs))  
+                    
+                    if self._analog_digital_inputs != 0:
+                        self._queue_put_prio("cadin:{data:04x}".format(data=self._analog_digital_inputs))  
+                    
+                    if self._analog_digital_input_pullups != 0:
+                        self._queue_put_prio("cadinp:{data:04x}".format(data=self._analog_digital_input_pullups))  
+                    
+                    if self._analog_digital_outputs != 0:
+                        self._queue_put_prio("cadout:{data:04x}".format(data=self._analog_digital_outputs))
+                    
+                    if self._digital_inputs != 0:  
+                        self._queue_put_prio("cdin:{data:04x}".format(data=self._digital_inputs))
+                    
+                    if self._digital_input_pullups != 0:  
+                        self._queue_put_prio("cdinp:{data:04x}".format(data=self._digital_input_pullups))
+                    
+                    if self._digital_counter != 0:  
+                        self._queue_put_prio("cdcnt:{data:04x}".format(data=self._digital_counter))
+                    
+                    if self._digital_counter_pullups != 0:  
+                        self._queue_put_prio("cdcntp:{data:04x}".format(data=self._digital_counter_pullups))
+                    
+                    if self._digital_outputs != 0:
+                        self._queue_put_prio("cdout:{data:04x}".format(data=self._digital_outputs))
+                    
+                    if self._digital_pwms != 0:
+                        self._queue_put_prio("cdpwm:{data:04x}".format(data=self._digital_pwms))
+                    
+                    if self._digital_servos != 0:   
+                        self._queue_put_prio("cdservo:{data:04x}".format(data=self._digital_servos))
+                    #
+                    # this helps to ensure that when all config are send to enable communication
+                    #
+                    self._queue_put_prio("#CONFIGURED")
+                    
+                    self.protocolState = UNO_Adapter.RECEIVE_START_RUNNING
+                    continue
+            
+            elif self.protocolState == UNO_Adapter.RECEIVE_START_RUNNING:
+                
+                if line.startswith( 'ident:' ):
+                    continue
+                
+                if line.startswith( 'config?' ):
+                    #
+                    # indicates a reset while already started
+                    #
+                    if show: print("found config request while RUNNING")
+                    self.protocolState = UNO_Adapter.RECEIVE_START_RESET_0
+                    continue
+                #
+                if line.startswith( 'v:' ):
+                    pass
+                #
+                #
+                elif line.startswith( 'ai' ):
+                    try:
+                        x = line[2:].split(',')
+                        port  = x[0]
+                        value = x[1]
+                        # print("port", port, "value", value)
+                        self.sendValueByName( 'outputA' + port,  value)
+                    except IndexError:
+                        print("IndexError 'ai'")
+                #
+                #
+                elif line.startswith( 'i' ):
+                    try:
+                        x = line[1:].split(',')
+                        port  = x[0]
+                        value = x[1]
+                        # print("port", port, "value", value)
+                        self.sendValueByName( 'outputD' + port,  value)
+                    except IndexError:
+                        print("IndexError 'i'")
+
+                #
+                # counter values are hex
+                #
+                elif line.startswith( 'c' ):
+                    try:
+                        x = line[1:].split(',')
+                        port  = x[0]
+                        value = x[1]
+                        # counters are transmitted as HEX values
+                        value = int(value, 16)
+                        # print("port", port, "value", value)
+                        self.sendValueByName( 'outputD' + port,  value)
+                    except IndexError:
+                        print("IndexError 'c'")
+                #
+                #
+                elif line.startswith( 'a' ):
+                    try:
+                        x = line[1:].split(',')
+                        port  = x[0]
+                        value = x[1]
+                        # print("port", port, "value", value)
+                        self.sendValueByName( 'outputA' + port,  value)
+                    except IndexError:
+                        print("IndexError 'a'")
+                #
+                elif line.startswith( 'e:' ):
+                    logger.info("error count " + line)
+                else:
+                    logger.info("undefined: " + line)
         
-        logger.debug("_runReceive %s", "end")
+        logger.debug("{n:s} _runReceive {c:s}".format( n=self.name, c="end") )
 
     def _runSend(self):
         logger.debug("_runSend %s", "start")
@@ -901,7 +1145,7 @@ class UNO_Adapter (adapter.adapters.Adapter):
             UNO_Adapter.STATE.__init__(self)
         
         def entry(self):
-            res = self.parent.actionConnect(log=True)
+            res = self.parent.actionConnect(log= UNO_Adapter.LOG_ON_CONNECT_FAILURE)
             self.stateMachine.addEvent(res)
     
         def stop(self):
@@ -920,7 +1164,7 @@ class UNO_Adapter (adapter.adapters.Adapter):
             UNO_Adapter.STATE.__init__(self)
         
         def entry(self):
-            res = self.parent.actionConnect(log = False)
+            res = self.parent.actionConnect(log = UNO_Adapter.LOG_ON_CONNECT_SUCCESS )
             self.stateMachine.addEvent(res)
     
         
@@ -1106,16 +1350,21 @@ class UNO_Adapter (adapter.adapters.Adapter):
                 pass
             #print(self.name + ": setActibe finished")
     
-    
-    
                     
     def command(self, value):
         """low level command interface for arduino."""
+        if debug:
+            print("command", value)
         try:
             # print("value", value)
             allowed = ['help', 'cversion?', 'cerr?', 'cident?']
-            if value in allowed:   
-                self._queue_put_prio(value)
+            if value in allowed:
+                 
+                if sys.version_info.major == 2:
+                    self._queue_put_prio(value.encode('ascii'))
+                                     
+                if sys.version_info.major >= 3:
+                    self._queue_put_prio(value)
             else:
                 logger.error("{n:s}: command not allowed {c:s} {a:s}".format(n=self.name, c=value, a=allowed))
         except Exception as e:

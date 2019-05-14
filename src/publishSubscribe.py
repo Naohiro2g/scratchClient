@@ -76,7 +76,9 @@ class Pub:
                 receiver(message)
                 found = True
         if not found:
-           
-            Pub.logger.error("Topic not found " + topic)
+            #
+            # this happens if unknown events (variable, broadcasts) are received.
+            # so write this as INFO, not as WARN or ERROR
+            Pub.logger.info("Topic not found " + topic)
             if debug:
                 print( "Topic not found " + topic )

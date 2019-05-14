@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
     # --------------------------------------------------------------------------------------------
-    # Copyright (C) 2013  Gerhard Hepp
+    # Copyright (C) 2013-2017  Gerhard Hepp
     #
     # This program is free software; you can redistribute it and/or modify it under the terms of
     # the GNU General Public License as published by the Free Software Foundation; either version 2
@@ -16,9 +16,6 @@
     # ---------------------------------------------------------------------------------------------
 
 #
-# install
-#  sudo apt-get install python-pip
-#  sudo  pip install cherrypy routes routes Mako
 
 debug = False
 debug_grid = False
@@ -28,20 +25,23 @@ import os
 import json
 import threading
 import sys 
-
+import traceback
+#import curses
+#import curses.ascii
        
-import cherrypy
-import mimetypes
-import posixpath
+import tornado.ioloop
+import tornado.web
+import tornado.websocket
+import asyncio
 
-from mako.template import Template
-from mako.lookup import TemplateLookup
-
-from ws4py.server.cherrypyserver import WebSocketPlugin, WebSocketTool
-from ws4py.websocket import WebSocket
+import mako.template
+import mako.lookup
+import uuid
     
 import xml.etree.ElementTree as ET
 import publishSubscribe
+
+import helper
 
 import adapter.adapters 
 
@@ -50,13 +50,27 @@ logger = logging.getLogger(__name__)
 
 import scratchClient
 
-configuration = {'webapp2_static': { 'static_file_path': scratchClient.modulePathHandler.getScratchClientBaseRelativePath('htdocs/static') }}
+#configuration = {'webapp2_static': { 'static_file_path': scratchClient.modulePathHandler.getScratchClientBaseRelativePath('htdocs/static') }}
 commandResolver = None
 #
 # strange circular dependency to base module
 
-lookup = TemplateLookup(directories=[scratchClient.modulePathHandler.getScratchClientBaseRelativePath('htdocs/static')
-                                    ], input_encoding='utf-8', output_encoding='utf-8',encoding_errors='replace')
+lookup = mako.lookup.TemplateLookup(
+                                    directories=[
+                                          scratchClient.modulePathHandler.getScratchClientBaseRelativePath('htdocs')
+                                    ], 
+                                    input_encoding='utf-8', 
+                                    output_encoding='utf-8',
+                                    encoding_errors='replace')
+
+# ------------------------------------------------------------------------------------------------
+_runThreads = True
+parentApplication = None
+remote = False
+scratchXHandler = None
+
+useLocalIOloop = True
+localIOloop = None
 
 # ------------------------------------------------------------------------------------------------
 # handle item-ID values throughout code
@@ -155,9 +169,7 @@ idManager = IDManager()
 # ------------------------------------------------------------------------------------------------
 # cherrypy-Handler
     
-class BaseHandler():
-    def __init__(self):
-        pass
+class BaseHandler(tornado.web.RequestHandler):
     
     def render_response(self, _template, context):
 #        lookup = TemplateLookup(directories=['htdocs/static',
@@ -165,16 +177,28 @@ class BaseHandler():
 #                                           ], input_encoding='utf-8', output_encoding='utf-8',encoding_errors='replace')
         
         # Renders a template and writes the result to the response.
- 
+        
+        context['debug'] = debug
+        #
+        # javascript needs lowecase true/false and can't use the python settings directly.
+        #
+        if debug: 
+            context['js_debug'] = 'true' 
+        else: 
+            context['js_debug'] = 'false'
+        
         tmpl = lookup.get_template(_template)
+        tmpl.strict_undefined=True
         
-        if logger.isEnabledFor(logging.DEBUG):
-            logger.debug ( "template: %s", tmpl)
+        try:
+            ret =  tmpl.render( ** context )
+        except Exception as e:
+            print("Exception !!", e)
+            traceback.print_exc()
+            ret="unknown"
         
-        ret =  tmpl.render( ** context )
-        
-        logger.debug ("rendered: %s", ret)
-        return ret
+        if debug: logger.debug ("rendered: %s", ret)
+        self.write(ret)
     
 #    def relPath(self, path):
 #        p =  configuration['webapp2_static']['static_file_path'] + path
@@ -188,30 +212,68 @@ class BaseHandler():
 # ------------------------------------------------------------------------------------------------
 # cherrypy-Handler
 class ScratchClientMain(BaseHandler):
-    def __init__(self):
-        BaseHandler.__init__(self)
-        self.additionalpaths = []
-        
-    def addPath(self, name, path, comment):
-        
-        self.additionalpaths.append( {'name': name, 'path': path, 'comment': comment } )
-        
+         
+    def initialize(self, additionalpaths):
+        self.additionalpaths = additionalpaths
+        pass
         
     def get(self):
         context = { 'additionalpaths' :self.additionalpaths }
         
-        return self.render_response('html/main.html', context)
+        self.render_response('template/main.html', context)
+        
+class Usage14Handler(BaseHandler):
+    """return some usage hints for scratch"""
+    def get(self):
+        
+        list_adapter_input_command = []
+        list_adapter_output_command = []
+        list_adapter_input_values = []
+        list_adapter_output_values = []
+
+        for _adapter in parentApplication.config.getAdapters():
+            for inp in _adapter.inputs:
+                for sn in inp.scratchNames:
+                    list_adapter_input_command.append( sn )
+
+                
+            for val in _adapter.input_values:
+                for sn in val.scratchNames: 
+                    list_adapter_input_values.append( sn)
+            
+            for out in _adapter.outputs:
+                list_adapter_output_command.append( out.scratchNames[0] )
+                
+            for out in _adapter.output_values:
+                list_adapter_output_values.append( out.scratchNames[0])
+                
+        context = {
+                   'list_adapter_input_commands'  : list_adapter_input_command,
+                   'list_adapter_output_commands' : list_adapter_output_command, 
+                   'list_adapter_input_values'    : list_adapter_input_values ,
+                   'list_adapter_output_values'   : list_adapter_output_values 
+                   }
+        
+        return self.render_response('template/scratchUsage14.html', context)
+
+# ------------------------------------------------------------------------------------------------
+class TemplateHandler(BaseHandler):
+    def initialize(self, path):
+        if debug:
+            print("TemplateHandler", "path", path)
+        self.path = path        
+        
+    def get(self, file):
+        context = dict()
+        self.render_response( self.path + '/' + file, context)
 
 
 # ------------------------------------------------------------------------------------------------
-# cherrypy-Handler
 #
 class ConfigHandler(BaseHandler ):
     """return the xml-config"""
     config = None
     
-    def __init__(self, config):
-        self.config = config
         
     def get(self):
         xmlConfigName = parentApplication.config.filename
@@ -238,25 +300,42 @@ class ConfigHandler(BaseHandler ):
 
         context = {'configName': xmlConfigName, 'config':xmlConfig }
         
-        return self.render_response('html/config.html', context)
+        self.render_response('template/config.html', context)
+        
+class ReleaseHandler(BaseHandler ):
+    """return the xml-config"""
+    
+    def get(self):
+
+        context = { 'version': scratchClient.version, 'changes':scratchClient.changes }
+        
+        return self.render_response('template/release.html', context)
 
 # ------------------------------------------------------------------------------------------------
 # cherrypy-Handler
 #
-class CommandHandler(BaseHandler ):
+class CommandHandler_InputSide(BaseHandler ):
     """Command input from web interface"""
     
     def __init__(self):
         #publishSubscribe.Pub.subscribe('input.scratch.command')
         pass
     
-    def postInput(self, adapter='', command='somecommand'):
+    def post(self, adapter='', command='somecommand'):
         logger.debug("input, command=%s", command)
         publishSubscribe.Pub.publish('input.scratch.{name:s}'.format(name=command), {'name':command})
         ## eventHandler.resolveCommand(self, adapter, command, qualifier='input')
         return "no_return"
 
-    def postOutput(self, adapter='', command='somecommand'):
+    
+class CommandHandler_OutputSide(BaseHandler ):
+    """Command input from web interface"""
+    
+    def __init__(self):
+        #publishSubscribe.Pub.subscribe('input.scratch.command')
+        pass
+    
+    def post(self, adapter='', command='somecommand'):
         logger.debug("output, command=%s", command)
         publishSubscribe.Pub.publish('output.scratch.command', {'name':command})
         # eventHandler.resolveCommand(self, adapter, command, qualifier='output')
@@ -304,8 +383,8 @@ class AdaptersHandler(BaseHandler):
         
     def calculateHeight(self, _adapter):
         """height in logical grid height units; depends on number of input/output, parameter etc"""
-        
-        l = 2 # minimum 2 text columns in adapter for names
+       
+        l = 1 + len(_adapter.className.split('.'))
         if isinstance(_adapter,  adapter.adapters.GPIOAdapter):
             l += len( _adapter.gpios )
         
@@ -323,6 +402,8 @@ class AdaptersHandler(BaseHandler):
         # outputs are 'unique'
         o += len(_adapter.outputs)
         o += len(_adapter.output_values)
+        
+        
         h = max(i, o, l)
         
         return h 
@@ -366,7 +447,9 @@ class AdaptersHandler(BaseHandler):
         xmlConfigName = parentApplication.config.filename
         description = parentApplication.config.getDescription().replace('\n', '<br/>')
         
-        jScript = ''
+        jScript = '"use strict";   \n'
+        jScript += 'let obj;         \n'
+        
         list_adapter_input_command = []
         list_adapter_output_command = []
         #
@@ -466,7 +549,7 @@ class AdaptersHandler(BaseHandler):
             gg = ET.SubElement(g, "g")
             
             h = self.calculateHeight(_adapter)
-            
+            inside_box_lines = 0
             a = self.rectHelper(gg, _id='adapter' + '_' + _adapter.name,
                            x = column_40,
                            y = current_height, 
@@ -479,9 +562,10 @@ class AdaptersHandler(BaseHandler):
     
             self.textHelper(gg,  text=_adapter.name, 
                             x= column_40 + 5,
-                            y= current_height +  vSpacing,
+                            y= current_height +  (inside_box_lines +1) * vSpacing,
                             style = boldTextStyle)
             
+            inside_box_lines += 1
             # print the class name in multiple lines
             #
             class_segments = _adapter.className.split('.')
@@ -490,9 +574,10 @@ class AdaptersHandler(BaseHandler):
                 s = class_segments[i]
                 self.textHelper(gg,  text=s, 
                                 x= column_40 + 5,
-                                y= current_height +  (i+2) * vSpacing,
+                                y= current_height +  (inside_box_lines +1) * vSpacing,
                                 style = textStyle)
-            
+                inside_box_lines += 1
+                
             if isinstance(_adapter,  adapter.adapters.GPIOAdapter):
                 gi = 1
                 for gpio in _adapter.gpios:
@@ -505,9 +590,10 @@ class AdaptersHandler(BaseHandler):
                         
                     self.textHelper(gg,  text=atext , 
                                     x= column_40 + 5,
-                                    y= current_height +  2 * vSpacing + gi*vSpacing,
+                                    y= current_height +  (inside_box_lines +1) * vSpacing,
                                     style = gpioTextStyle)
                     gi += 1
+                    inside_box_lines += 1
                 
             # leftside are the left side connectors
             leftSide = 0            
@@ -598,7 +684,8 @@ class AdaptersHandler(BaseHandler):
                     textValue_Out.text = '?'
                     textValue_Out.set('style', textStyle)
 
-                    jScript += self.createOnclickInputValue( _id_text, _id+'_back', _adapter.name, val.scratchNames[nValue])
+                    jScript += self.createOnclickInputValue( _id_text   , _id+'_back', _adapter.name, val.scratchNames[nValue])
+                    jScript += self.createOnclickInputValue( _id+'_back', _id+'_back', _adapter.name, val.scratchNames[nValue])
 
                     text_Val = ET.SubElement(gg, "text")
                     text_Val.set('x', str(column_10))
@@ -740,7 +827,7 @@ class AdaptersHandler(BaseHandler):
                 textValue_Out.set('style', textStyle)
                 
                 jScript += self.createOnclickOutputValue(_id+'_back', _id+'_back', _adapter.name, out.scratchNames[0])
-                jScript += self.createOnclickOutputValue(_id_text, _id+'_back', _adapter.name, out.scratchNames[0])
+                jScript += self.createOnclickOutputValue(_id_text   , _id+'_back', _adapter.name, out.scratchNames[0])
  
                 rightSide += 1
             
@@ -758,7 +845,7 @@ class AdaptersHandler(BaseHandler):
         
         if debug:
             print(svgText)    
-        logger.debug(svgText)
+            logger.debug(svgText)
 
         #
         # javascript, tooltips
@@ -768,126 +855,101 @@ class AdaptersHandler(BaseHandler):
             adapterId = 'adapter_{an:s}'.format(an=_adapter.name )
             
 
-        jScript += '   var websocket = new WebSocket("ws://" + window.location.host + "/ws");'
+        jScript += '        let websocket = new WebSocket("ws://" + window.location.host + "/ws");  \n'
         jScript += """
-           websocket.onmessage = function(e){
-                var server_message = e.data;
-                console.log(server_message);
-                jObj = JSON.parse(server_message); 
-                """
+    websocket.onmessage = function(e){
+            let server_message = e.data;
+            console.log(server_message);
+            let jObj = JSON.parse(server_message); 
+"""
         # --------------------------
-        jScript += "if ( jObj.command == 'scratch_input_command' ){ "
         #
         # add the scratch command to id-mappers
+        jScript +=         "        if ( jObj.command == 'scratch_input_command' ){ \n"
         res = idManager.getDisplayId_scratchInputCommandSummary()
         for sn in res.keys():
-            jScript += "        if ( jObj.name == \"{name:s}\" ){{\n".format( name=sn )
+            jScript +=     "            if ( jObj.name == \"{name:s}\" ){{\n".format( name=sn )
             for ln in res[sn]:
-                jScript += "             document.getElementById( \"{id:s}\" ).beginElement();\n".format(id=ln)
-            jScript += "        }\n"   
-        jScript +="""         
-           }"""
+                jScript += "                document.getElementById( \"{id:s}\" ).beginElement();\n".format(id=ln)
+            jScript +=     "            }\n"   
+        jScript +=         "        }\n"
         # --------------------------
            
-        jScript +="""      if ( jObj.command == 'scratch_input_value' ){
-           """
         #
         # add the scratch command to id-mappers
         res = idManager.getDisplayId_scratchInputValueSummary()
+        jScript +=         "         if ( jObj.command == 'scratch_input_value' ){ \n"
         for sn in res.keys():
-            jScript += "        if ( jObj.name == \"{name:s}\" ){{\n".format( name=sn )
+            jScript +=     "             if ( jObj.name == \"{name:s}\" ){{\n".format( name=sn )
             for ln in res[sn]:
-                jScript += "             document.getElementById( \"{id:s}\" ).textContent = jObj.value;\n".format(id=ln)
-            jScript += "        }\n"   
-        jScript +="""         
-                }
-        """
+                jScript += "                 document.getElementById( \"{id:s}\" ).textContent = jObj.value;\n".format(id=ln)
+            jScript +=     "             }\n"   
+        jScript +=         "         }\n"
         # --------------------------
-        jScript +="""      if ( jObj.command == 'scratch_output_command' ){
-           """
         #
         # add the scratch command to id-mappers
         res = idManager.getDisplayId_scratchOutputCommandSummary()
+        jScript +=         "         if ( jObj.command == 'scratch_output_command' ){  \n"
         for sn in res.keys():
-            jScript += "        if ( jObj.name == \"{name:s}\" ){{\n".format( name=sn )
+            jScript +=     "             if ( jObj.name == \"{name:s}\" ){{\n".format( name=sn )
             for ln in res[sn]:
-                jScript += "             document.getElementById( \"{id:s}\" ).beginElement();\n".format(id=ln)
-            jScript += "        }\n"   
-        jScript +="""         
-                }
-        """
-        jScript +="""      if ( jObj.command == 'scratch_output_value' ){
-           """
+                jScript += "                 document.getElementById( \"{id:s}\" ).beginElement();\n".format(id=ln)
+            jScript +=     "             }\n"   
+        jScript +=         "         } \n"
+
         #
         # add the scratch command to id-mappers
+        jScript +=         "         if ( jObj.command == 'scratch_output_value' ){  \n"
         res = idManager.getDisplayId_scratchOutputValueSummary()
         for sn in res.keys():
-            jScript += "        if ( jObj.name == \"{name:s}\" ){{\n".format( name=sn )
+            jScript +=     "             if ( jObj.name == \"{name:s}\" ){{\n".format( name=sn )
             for ln in res[sn]:
-                jScript += "             document.getElementById( \"{id:s}\" ).textContent = jObj.value;\n".format(id=ln)
-            jScript += "        }\n"   
-        jScript +="""         
-                }
-        """
+                jScript += "                 document.getElementById( \"{id:s}\" ).textContent = jObj.value;\n".format(id=ln)
+            jScript +=     "             }\n"   
+        jScript +=         "         }  \n"
         
             
-        jScript += """   }
+        jScript += """        }
            
            websocket.onopen = function(){
-               console.log('Connection open!');
+               console.log('Connection open');
                document.getElementById("status.host").textContent ='Connection to scratchClient open';
                document.getElementById("status.host").style.background = 'green';
-               
            }
            
            websocket.onclose = function(){
                console.log('Connection closed');
                document.getElementById("status.host").textContent ='Connection to scratchClient closed';
-                document.getElementById("status.host").style.background = 'red';
+               document.getElementById("status.host").style.background = 'red';
+           }
+           
+           // click on an object (send event)
+           function click_Command (evt, id, command, scratch){
+                try {
+                    let message = JSON.stringify( { id:id, command:command, scratch:scratch } );
+                    console.log( 'message: ' + message); 
+                    websocket.send(message);
+                }   catch(err) {
+                    console.log( err.message );
+                }
            }
         """
-
-        jScript += '// click on an object (send event)' + '\n'
-        jScript += 'function click_Command (evt, id, command, scratch){' + '\n'
-        jScript += '    try {' + '\n'
-        jScript += '        message = JSON.stringify( { id:id, command:command, scratch:scratch }); '
-        jScript += '        websocket.send(message);' + '\n'
-        jScript += '    }   catch(err) {' + '\n'
-        jScript += '        console.log( err.message );' + '\n'
-        jScript += '    }' + '\n'
-        jScript += '}' + '\n'
-        #
-        #
-        #    
-        
-#         jScript += 'function displayBroadcastEvent( id)' + '\n'
-#         jScript += '{' + '\n'
-#         jScript += '    document.getElementById( id ).beginElement();' + '\n'
-#         jScript += '}' + '\n'
-# 
-#         jScript += 'function displayUpdateEvent( id, value)' + '\n'
-#         jScript += '{' + '\n'
-#         jScript += '    document.getElementById( id ).textContent = value;' + '\n'
-#         jScript += '}' + '\n'
-
         #
         # Output Values, need an editor popup
         #
-
         html_preamble = """
             <!-- this is target structure -->
             
             <div id="DIV.float"        style="position:absolute;left:80px;top:80px;width:160px;height:60px;display:none;background-color:#f8f8f8;font-family:sans-serif;font-size:10;border-width=2px;border-color=x200000;border:3px coral solid;">
+            
                 <div id="HEADER.float" style="position:absolute;left:3px;top:3px;font-family:sans-serif;font-size:14;font-weight:bold;">header</div>
-                <img id="qwInput" onclick="close_floatInput();" src="/files/icon/16x16_Delete.jpg" 
+                <img id="qwInput" onclick="close_floatInput();" src="/icon/16x16_Delete.jpg" 
                                        style="position:absolute;right:3px;top:3px;background-color:#FFFFFF;"/>
                 <input id='I00.float' size="24" 
-                                       style="position:absolute;left:3px;bottom:3px;font-family:sans-serif;font-size:12;fontWeight:normal;" />
+                                       style="position:absolute;left:3px;bottom:3px;width:150px; font-family:sans-serif;font-size:12;fontWeight:normal;" />
             </div>
             
-            
-            <div id='status.host' style="position:fixed;width:240;current_height=20; left:0;bottom:0;background-color:#FFDDDD;font-family:sans-serif;font-size:12">
-                 
+            <div id='status.host' style="position:fixed;width:240; left:0;bottom:0; background-color:#FFDDDD;font-family:sans-serif;font-size:12">
             </div>
             """
             
@@ -904,10 +966,9 @@ class AdaptersHandler(BaseHandler):
             document.onmousemove = readMouseMove;
             """
             html_preamble += """   
-                <div id='status.host' style="position:fixed;width:240;current_height=20; left:240;bottom:0;background-color:#ffffff;font-family:sans-serif;font-size:12">
-                     <div id='x_result' style="position:absolute;width:100;current_height=20; left:20;bottom:0;" >X</div>
-                     <div id='y_result' style="position:absolute;width:100;current_height=20; left:120;bottom:0;" >Y</div>
-                </div>
+                     <div id='x_result' style="position:fixed;width:100px; left:260px;bottom:0px; font-family:sans-serif;font-size:12" >X</div>
+                     <div id='y_result' style="position:fixed;width:100px; left:360px;bottom:0px; font-family:sans-serif;font-size:12" >Y</div>
+               
             """
 
         html_preamble += """
@@ -918,12 +979,13 @@ class AdaptersHandler(BaseHandler):
         
         jScript += """
                 function close_floatInput(evt){
-                    var tstObj = document.getElementById("DIV.float"); 
+                    let tstObj = document.getElementById("DIV.float"); 
                     tstObj.style.display = 'none';
                 }
+                let pupup_state;
                 function searchKeyPressInput_float(e){
                     
-                    var textObj = document.getElementById("I00.float"); 
+                    let textObj = document.getElementById("I00.float"); 
                     
                     console.log("command " + pupup_state.command);
                     console.log("name    " + pupup_state.name);
@@ -933,7 +995,7 @@ class AdaptersHandler(BaseHandler):
                     if (typeof e == 'undefined' && window.event) { e = window.event; }
                     if (e.keyCode == 13)
                     {
-                        message = JSON.stringify( { command: pupup_state.command, scratch:pupup_state.name, value:textObj.value } )
+                        let message = JSON.stringify( { command: pupup_state.command, scratch:pupup_state.name, value:textObj.value } )
                         websocket.send ( message)  
                         textObj.value = ''
                     }
@@ -943,24 +1005,18 @@ class AdaptersHandler(BaseHandler):
                     console.log("name    " + value_name);
                     console.log("svgid   " + svgid);
                     
-                    var svgText = document.getElementById(svgid);
-                    var bbox = svgText.getBBox();
+                    let svgText = document.getElementById(svgid);
+                    let bbox = svgText.getBBox();
     
-                    var divSvg = document.getElementById("DIV.svg");
+                    let divSvg = document.getElementById("DIV.svg");
                     
-                                        
                     // var x = divSvg.offsetLeft + bbox.x;
                     // var y = divSvg.offsetHeight + bbox.y;
-                    var x = evt.clientX;
-                    var y = evt.clientY +window.scrollY +20;
-                    
-                    var tstObj = document.getElementById("DIV.float"); 
-                    
-                    tstObj.style.left= x;
-                    tstObj.style.top = y;
-                    tstObj.style.display = 'initial';
-                    
-                    var tstHeader = document.getElementById("HEADER.float"); 
+
+                    let x_svg = divSvg.getBoundingClientRect().left;
+                    let y_svg = divSvg.getBoundingClientRect().top;
+
+                    let tstHeader = document.getElementById("HEADER.float"); 
                     tstHeader.textContent = value_name;
                     
                     console.log("bbox.x " + bbox.x);
@@ -968,102 +1024,93 @@ class AdaptersHandler(BaseHandler):
                     
                     console.log("divSvg.offsetLeft   " + divSvg.offsetLeft   );
                     console.log("divSvg.offsetHeight " + divSvg.offsetHeight );
+                    console.log("divSvg.left         " + divSvg.left );
+                    console.log("divSvg.top          " + divSvg.top  );
+
+                    let tstObj = document.getElementById("DIV.float");
+                     
+                    console.log("set to x " +  (bbox.x + x_svg)      );
+                    console.log("set to y " +  (bbox.y + y_svg)      );
+                    
+                    tstObj.style.left = (bbox.x + x_svg      ) + 'px';
+                    tstObj.style.top  = (bbox.y + y_svg + 20 ) + 'px';
+                    
+                    tstObj.style.position = 'fixed'; //'absolute';
+                    
+                    tstObj.style.display = 'initial';
                     
                     pupup_state = { command: command, name: value_name};
                     
-                    var textObj = document.getElementById("I00.float"); 
+                    let textObj = document.getElementById("I00.float"); 
                     textObj.onkeypress = function(e){ searchKeyPressInput_float( e ); };
                     
                 }
                 """
                 
-        logger.debug (jScript)
+        if debug: logger.debug (jScript)
         context = {'description'  : description,
                    'html_preamble': html_preamble, 
                    'svg'          : svgText ,
                    'jScript'      : jScript ,
-                   'configName'   : xmlConfigName }
+                   'configName'   : xmlConfigName,
+                   'debug_grid'   : debug_grid     }
         
-        return self.render_response('html/adapters.html', context)
+        return self.render_response('template/adapters.html', context)
             
             
-class FileProvider(BaseHandler):
-    
-    def file(self, path=''):
-        if debug:
-            print('FileProvider path', path)        
-            print('FileProvider configuration', configuration)
-        
-        _dir =  configuration['webapp2_static']['static_file_path']
-        
-        srcfile = posixpath.normpath(posixpath.join(_dir, path))
-        if debug:
-            print('FileProvider srcfile', srcfile)
-        
-        if os.path.exists(srcfile):
-            try:
-                mime = mimetypes.guess_type(srcfile)
-                if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug(srcfile)
-                    logger.debug( mime )
-                cherrypy.response.headers['Content-Type']=  mime[0]
-                
-                f = open(srcfile, 'rb')
-                fd = f.read()
-                f.close()
-                
-                return fd
 
-            except:
-                logger.warn('not found %s', srcfile)
-                raise cherrypy.HTTPError(404)
-                        
-        else:
-            logger.warn('not found %s: %s', path, srcfile)
-            raise cherrypy.HTTPError(404)
 
-class AdapterAnimationWebSocket(WebSocket):
+class AdapterAnimationWebSocket(tornado.websocket.WebSocketHandler):
     
-    def __init__(self, sock, protocols=None, extensions=None, environ=None, heartbeat_freq=None):
-        WebSocket.__init__(self, sock, protocols, extensions, environ, heartbeat_freq)
+    def __init__(self, args, kwargs):
+        tornado.websocket.WebSocketHandler.__init__(self, args, kwargs)
+        self.terminated = None
         logger.info("AdapterAnimationWebSocket.init")
-        
-    def received_message(self, message):
+
+    def on_message(self, message):
         """
         Automatically sends back the provided ``message`` to
         its originating endpoint.
         """
-        
-        if sys.version_info.major < 3:
-            if debug:
-                print('message.data:', message.data)
-            md = message.data
-            if debug:
-                print('md:', md)
+        if debug: print("on_message: " + message)
+        try:
+            if sys.version_info.major < 3:
+                if debug:
+                    print('message.data:', message)
+                md = message
+                if debug:
+                    print('md:', md)
+                    
+                msg = json.loads( md )
+    
+            if sys.version_info.major == 3:
+                if debug:
+                    print('message.data:', message)
+                md = message
+                if debug:
+                    print('md:', md)
+                msg = json.loads( md )
+            
+            if msg['command'] == 'input.command':
+                publishSubscribe.Pub.publish('scratch.input.command.{name:s}'.format(name=msg['scratch']), { 'name':msg['scratch'] } ) 
                 
-            msg = json.loads( md )
+            if msg['command'] == 'output.command':
+                publishSubscribe.Pub.publish('scratch.output.command.{name:s}'.format(name=msg['scratch']), { 'name':msg['scratch'] } ) 
+               
+            if msg['command'] == 'input.value':
+                publishSubscribe.Pub.publish('scratch.input.value.{name:s}'.format(name=msg['scratch']), { 'name':msg['scratch'], 'value':msg['value'] } ) 
+                
+            if msg['command'] == 'output.value':
+                publishSubscribe.Pub.publish('scratch.output.value.{name:s}'.format(name=msg['scratch']), { 'name':msg['scratch'], 'value':msg['value'] } ) 
+        
+        except Exception as e:
+            print("Exception !!", e)
+            traceback.print_exc()
+            
+    def open(self):
+        if debug: print("websocket open: " )
 
-        if sys.version_info.major == 3:
-            if debug:
-                print('message.data:', message.data)
-            md = message.data.decode('utf-8')
-            if debug:
-                print('md:', md)
-            msg = json.loads( md )
-        
-        if msg['command'] == 'input.command':
-            publishSubscribe.Pub.publish('scratch.input.command.{name:s}'.format(name=msg['scratch']), { 'name':msg['scratch'] } ) 
-            
-        if msg['command'] == 'output.command':
-            publishSubscribe.Pub.publish('scratch.output.command.{name:s}'.format(name=msg['scratch']), { 'name':msg['scratch'] } ) 
-           
-        if msg['command'] == 'input.value':
-            publishSubscribe.Pub.publish('scratch.input.value.{name:s}'.format(name=msg['scratch']), { 'name':msg['scratch'], 'value':msg['value'] } ) 
-            
-        if msg['command'] == 'output.value':
-            publishSubscribe.Pub.publish('scratch.output.value.{name:s}'.format(name=msg['scratch']), { 'name':msg['scratch'], 'value':msg['value'] } ) 
-        
-    def opened(self):
+        self.terminated = False
         for _adapter in parentApplication.config.getAdapters():
             for inp in _adapter.inputs:
                 for scratchName in inp.scratchNames:
@@ -1078,6 +1125,11 @@ class AdapterAnimationWebSocket(WebSocket):
             for out in _adapter.output_values:
                 for scratchName in out.scratchNames:
                     publishSubscribe.Pub.subscribe("scratch.output.value.{name:s}".format(name=scratchName), self.outputValue )
+        
+    def on_close(self, *args, **kwargs):
+        if debug: print ("on_close", args, kwargs)
+        self.terminated = True
+        self.closed(22)
         
     def closed(self, code, reason=None):
         for _adapter in parentApplication.config.getAdapters():
@@ -1094,85 +1146,263 @@ class AdapterAnimationWebSocket(WebSocket):
             for out in _adapter.output_values:
                 for scratchName in out.scratchNames:
                     publishSubscribe.Pub.unsubscribe("scratch.output.value.{name:s}".format(name=scratchName), self.outputValue )        
+
+    def _addMessage(self, message):
+        """ called from the tornado.localIOloop.IOLoop.current().add_callback framework """ 
+        if self.terminated == True:
+            if debug: print("ScratchXWebSocketHandler[{cnt:d}] receive _addMessage while TERMINATED".format(cnt=self._instanceCount ))
+        else:
+            self.write_message (message, False )
+
         
     def inputValue(self, message):
+        if debug: print("websocket inputValue", message)
         message['command'] = 'scratch_input_value'
-        if not self.terminated:
-            try:
-                self.send ( json.dumps(message), False )
-                if debug:
-                    print ("inputValue " + json.dumps(message))
-            except Exception:
-                pass
+        if useLocalIOloop:
+            localIOloop.add_callback( self._addMessage, json.dumps(message) )
+        else:
+            tornado.ioloop.IOLoop.current().add_callback( self._addMessage, json.dumps(message) )
         
     def inputCommand(self, message):
+        if debug: print("websocket inputCommand", message)
         message['command'] = 'scratch_input_command'
-        if not self.terminated:
-            try:
-                self.send ( json.dumps(message), False )
-                if debug:
-                    print ("inputCommand " + json.dumps(message))
-            except Exception:
-                pass
+        if useLocalIOloop:
+            localIOloop.add_callback( self._addMessage, json.dumps(message) )
+        else:
+            tornado.ioloop.IOLoop.current().add_callback( self._addMessage, json.dumps(message) )
                 
     def outputValue(self, message):
         message['command'] = 'scratch_output_value'
-        if not self.terminated:
-            try:
-                self.send ( json.dumps(message), False )
-                if debug:
-                    print ("outputValue " + json.dumps(message))
-            except Exception:
-                pass
+        if useLocalIOloop:
+            localIOloop.add_callback( self._addMessage, json.dumps(message) )
+        else:
+            tornado.ioloop.IOLoop.current().add_callback( self._addMessage, json.dumps(message) )
             
     def outputCommand(self, message):
         message['command'] = 'scratch_output_command'
-        if not self.terminated:
-            try:
-                self.send ( json.dumps(message), False )
-                if debug:
-                    print ("outputCommand " + json.dumps(message))
-            except Exception:
-                pass
+        if useLocalIOloop:
+            localIOloop.add_callback( self._addMessage, json.dumps(message) )
+        else:
+            tornado.ioloop.IOLoop.current().add_callback( self._addMessage, json.dumps(message) )
                 
-                     
-class AnimationHandler(object):
-    def ws(self):
-        # you can access the class instance through
-        handler = cherrypy.request.ws_handler
-        
-        
 
-class ValueHandler:
+class ValueHandler_InputSide:
     def __init__(self):
         # eventHandler.register('ValueHandler', 'ValueHandler', self)
         pass
     
-    def input(self, adapter, command, value):
+    def post(self, adapter, command, value):
         logger.debug("input  value called %s, %s, %s", adapter, command, value)
         # eventHandler.resolveValue(self, adapter, command, value, qualifier='input')
         return "no_return"
 
         return ""
 
-    def output(self, adapter, command, value):
+
+class ValueHandler_OutputSide:
+    def __init__(self):
+        # eventHandler.register('ValueHandler', 'ValueHandler', self)
+        pass
+    
+
+    def post(self, adapter, command, value):
         logger.debug("output value called %s, %s, %s", adapter, command, value)
         # eventHandler.resolveValue(self, adapter, command, value, qualifier='output')
         return ""
 
-parentApplication = None
-remote = False
+sendQueue = helper.abstractQueue.AbstractQueue() 
 
-
-class DefaultWebsocketHandler(object):
-    def ws(self):
-        # you can access the class instance through
-        _ = cherrypy.request.ws_handler
-
-
-
-class ServerThread(threading.Thread):
+class ScratchXWebSocketHandler(tornado.websocket.WebSocketHandler):
+    instanceCount = 0
     
+    def __init__(self, args, kwargs):
+        ScratchXWebSocketHandler.instanceCount += 1
+        self._instanceCount =  ScratchXWebSocketHandler.instanceCount
+        tornado.websocket.WebSocketHandler.__init__(self, args, kwargs)
+        self.terminated = False
+
+        scratchXHandler.subscribe(self)
+        if debug: print("ScratchxWebSocketHandler[{cnt:d}].init".format(cnt=self._instanceCount) )
+        
+    def check_origin(self, origin):
+        """Access-Control-Allow-Origin ..."""
+        return True
+
+    def open(self, *args, **kwargs):
+        if debug: print("ScratchXWebSocketHandler[{cnt:d}], open".format(cnt=self._instanceCount) )
+        scratchXHandler.event_connect()
+
+    def on_close(self, *args, **kwargs):
+        if debug: print ("ScratchXWebSocketHandler[{cnt:d}], on_close".format(cnt=self._instanceCount ))
+        scratchXHandler.event_disconnect()
+        scratchXHandler.unsubscribe(self)
+        self.runMessageSend = False
+        self.terminated = True
+        
+    def on_message(self, message):
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug ( "ScratchXWebSocketHandler[{cnt:d}], received {m:s}".format(cnt=self._instanceCount, m=message ))
+        try:
+            if sys.version_info.major < 3:
+                if debug:
+                    print('message.data:', message)
+                md = message
+                if debug:
+                    print('md:', md)
+                    
+                msg = json.loads( md )
+    
+            if sys.version_info.major >= 3:
+                if debug:
+                    print('message.data:', message)
+                md = message
+                if debug:
+                    print('md:', md)
+                msg = json.loads( md )
+            
+            if msg['command'] == 'input.command':
+                publishSubscribe.Pub.publish('scratch.input.command.{name:s}'.format(name=msg['scratch']), { 'name':msg['scratch'] } ) 
+                
+            if msg['command'] == 'input.value':
+                publishSubscribe.Pub.publish('scratch.input.value.{name:s}'.format(name=msg['scratch']), { 'name':msg['scratch'], 'value':msg['value'] } ) 
+        
+        except Exception as e:
+            print("Exception !!", e, message)
+            traceback.print_exc()
+
+    
+    def _addMessage(self, message):
+        """ called from the tornado.localIOloop.IOLoop.current().add_callback framework """ 
+        if self.terminated == True:
+            if debug: print("ScratchXWebSocketHandler[{cnt:d}] receive _addMessage while TERMINATED".format(cnt=self._instanceCount ))
+        else:
+            self.write_message (message, False )
+                   
+    def inputValue(self, message):
+        if debug: print("ScratchXWebSocketHandler[{cnt:d}] websocket inputValue {m:s}".format(cnt=self._instanceCount , m= message) )
+        message['command'] = 'scratch_input_value'
+        if useLocalIOloop:
+            localIOloop.add_callback( self._addMessage, message )
+        else:
+            tornado.ioloop.IOLoop.current().add_callback( self._addMessage, message )
+        
+    def inputCommand(self, message):
+        if debug: print("ScratchXWebSocketHandler[{cnt:d}] websocket inputCommand {m:s}".format(cnt=self._instanceCount  , m= message) )
+        message['command'] = 'scratch_input_command'
+        if useLocalIOloop:
+            localIOloop.add_callback( self._addMessage, message )
+        else:
+            tornado.ioloop.IOLoop.current().add_callback( self._addMessage, message )
+                 
+    def sendValue(self, message):
+        """established by configureCommandResolver"""
+        if debug: print("ScratchXWebSocketHandler[{cnt:d}] websocket sendValue {m:s}".format(cnt=self._instanceCount  , m= str(message)) )
+        message['command'] = 'scratch_output_value'
+        if useLocalIOloop:
+            localIOloop.add_callback( self._addMessage, message )
+        else:
+            tornado.ioloop.IOLoop.current().add_callback( self._addMessage, message )
+             
+    def sendCommand(self, message):
+        """established by configureCommandResolver"""
+        if debug: print("ScratchXWebSocketHandler[{cnt:d}] websocket sendCommand {m:s}".format(cnt=self._instanceCount  , m= str(message)) )
+        message['command'] = 'scratch_output_command'
+        if useLocalIOloop:
+            localIOloop.add_callback( self._addMessage, message )
+        else:
+            tornado.ioloop.IOLoop.current().add_callback( self._addMessage, message )
+
+class JSName_VariableName:
+    def __init__(self, variable, jsVariable):
+        self.variable = variable
+        self.jsVariable = jsVariable
+    def __str__(self):
+        return 'JSName_VariableName[variable=' + self.variable + ';' + 'jsVariable=' + self.jsVariable + ']'
+        
+class JSName_VariableName_Provider:
+    """provide jsNames and variable names"""
+    
+    def __init__(self):
+        self.variable_names = dict()
+        
+    def get(self, variable): 
+           
+        self.variable = variable
+        if variable in self.variable_names:
+            return self.variable_names[variable]
+        else:
+            jsVariable = "{s:s}".format( s=uuid.uuid3( uuid.NAMESPACE_URL ,variable).hex )
+            j = JSName_VariableName( variable, jsVariable)
+            self.variable_names[variable] = j
+            
+            return j
+        
+class ScratchXConfigHandler(BaseHandler):
+    
+    def initialize(self, extensionFile):
+        self.extensionFile = extensionFile
+        pass
+
+    def set_default_headers(self):
+        if debug: print("setting headers!!!")
+        self.set_header("Access-Control-Allow-Origin", "*")
+        self.set_header("Access-Control-Allow-Headers", "x-requested-with")
+        self.set_header('Access-Control-Allow-Methods', 'POST, GET, PUT, DELETE, OPTIONS')
+        
+    def get(self):
+        context = dict()
+        context["scratchClient_host"] =  self.request.host
+        variableName_Provider = JSName_VariableName_Provider()
+        # the sensor names are used as variable names in javascript, so there are some limitations
+        # on chars used in these names.
+        
+        # make a list of sensor_values
+        sensor_names = []
+        for _adapter in parentApplication.config.getAdapters():
+            for out in _adapter.output_values:
+                on= variableName_Provider.get( out.scratchNames[0] )
+                sensor_names.append( on )
+        context[ "sensor_names"] = sensor_names 
+        
+        send_events = []
+        for _adapter in parentApplication.config.getAdapters():
+            for out in _adapter.outputs:
+                on= variableName_Provider.get( out.scratchNames[0] )
+                send_events.append( on )
+        context[ "send_events"] = send_events 
+        
+        #
+        # multiple names per input are possible. therefor make a list of lists
+        #  
+        receive_events = []
+        for _adapter in parentApplication.config.getAdapters():
+            for out in _adapter.inputs:
+                names = []
+                for n in out.scratchNames:
+                    names.append( variableName_Provider.get(n) )
+                receive_events.append(names)
+        context[ "receive_events"] = receive_events 
+        
+        #
+        # multiple names per input are possible. therefor make a list of lists
+        #  
+        receive_values = []
+        for _adapter in parentApplication.config.getAdapters():
+            for out in _adapter.input_values:
+                names = []
+                for n in out.scratchNames:
+                    names.append( variableName_Provider.get(n) )
+                receive_values.append(names)
+        context[ "receive_values"] = receive_values
+        # unregister extension on connection loss 
+        context ["reconnect"] = False
+        
+        if debug: print(context)
+        self.render_response( self.extensionFile, context)
+     
+serverStarted = False
+        
+class ServerThread(threading.Thread):
     server = None
     remote = None
     config = None
@@ -1180,163 +1410,225 @@ class ServerThread(threading.Thread):
     _stopEvent = None
     _running = None
     
-    def __init__(self, parent = None, remote = False, config = None):
-        # print("next: ServerThread, init")
-        threading.Thread.__init__(self, name="GUIServerThread")
+    # to detect problems with multiple instances running
+    usageCounter = 0
+    
+    def __init__(self, parent = None, config = None):
+        if debug: print("ServerThread, init", serverStarted)
+        threading.Thread.__init__(self, name="ServerThread_{usage:d}".format(usage = ServerThread.usageCounter) )
+        
+        ServerThread.usageCounter += 1
         
         self._stopEvent = threading.Event()
         self._running = threading.Event()
         
+        _runThreads = True
         self.config = config
-        self.guiRemote = remote
         global parentApplication
         parentApplication = parent
+        
         # print("next: ServerThread, init finished")
         
         #
         # make dispatcher and config available on class level. This allows 'plugin' mechanism
         #
-        self.dispatcher = cherrypy.dispatch.RoutesDispatcher()
-        self.conf = {'/': {'request.dispatch': self.dispatcher }
-                    }
-        self.main = ScratchClientMain()
+        self.listOfAdditionalPaths = []
+        self.listOfAdditionalHandlers = []
+        self.thread = None
         
-    def websocketPlugin(self, name, route, pluginWebSocket):
+    def websocketPlugin(self, name, route, pluginWebSocketClass):
         """enable insertion of webSocket-connection"""
-        logger.debug("configure websocket plugin for " + name)
-        self.dispatcher.connect(name=name   , route=route, controller=DefaultWebsocketHandler()  , action='ws')    
-        self.conf[route] =   {
-                'tools.websocket.on': True,
-                'tools.websocket.handler_cls': pluginWebSocket
-            }  
-    
+        logger.debug("configure websocket plugin for " + name + ": " + str(pluginWebSocketClass) )
+        self.listOfAdditionalHandlers.append(  { 'name':  name, 'route' : route, 'pluginWebSocketClass' : pluginWebSocketClass } )
+        
     def htmlPlugin (self, name, htmlpath, comment=''):
         """enable insertion of html-connection""" 
-        self.main.addPath ( name, htmlpath, comment )
+        
+        self.listOfAdditionalPaths.append(  { 'name':  name, 'htmlpath' : htmlpath, 'comment' : comment } )
        
     def start(self):
         """Start adapter Thread"""
-        # import pdb; pdb.set_trace() 
+        if debug: print("ServerThread, start", serverStarted)
+        if serverStarted:
+            print("ALERT " * 10)
+            print("Server already started")
+            return
+        
+        global _runThreads
+        _runThreads = True
 
         self._stopEvent.clear()
         self._running.clear()
         
-        threading.Thread.start(self)
+        self.thread = threading.Thread( name="ServerThread", target= self.run)
+        self.thread.start()
         
-        if True:
-            self._running.wait(60)
-        else:
-            time.sleep(20);
-        # print("next: start finished")
+        if debug: print("ServerThread, start completed")
 
     def stop(self):
-        logger.debug("ServerThread, stop cherryPy")
+        logger.debug("ServerThread, stop server")
+        global _runThreads
+        _runThreads = False
         self._stopEvent.set()
-        #eventDistributor.stop()
-        cherrypy.engine.exit()
-
+        
+         
+        if useLocalIOloop:
+            global localIOloop
+            iol = localIOloop
+        else:
+            iol = self.ioloop
+        
+        if iol != None:
+            iol.stop()
+            # directly access the ioloop from tornado.platform.asyncio.AsyncIOMainLoop
+            # and threadsave issue stop
+            # with this code, the thread is terminated. This works in tornado 5.1
+            try:
+                iol.asyncio_loop.call_soon_threadsafe( iol.asyncio_loop.stop )
+            except Exception:
+                pass
+                    
+        logger.debug("ServerThread, stop IOLoop stop")
+        if self.server != None:
+            self.server.stop()
+        logger.debug("ServerThread, stop server join")
+        
+        if self.thread != None:
+            self.thread.join( timeout=2.0)    
+            if self.thread.isAlive():
+                logger.warning("ServerThread, thread did not terminate")
+                
+        logger.debug("ServerThread, stop server completed")
+        
     def stopped(self):
         return self._stopEvent.isSet()
 
-    def run(self):
-        if debug:
-            print("next: ServerThread run()")
-          
-        logger.debug("ServerThread thread started")
+    def make_app(self):
         
-        if True:
-            self.dispatcher.mapper.explicit = False
-            
-            
-            if logger.isEnabledFor(logging.DEBUG):
-                pass
-
-            if logger.isEnabledFor(logging.INFO):
-                cherrypy.config.update({'log.screen': False,
-                            'log.access_file': '',
-                            'log.error_file': ''})
-            
-            
-            cherrypy.engine.autoreload_on = False
-            
-            cherrypy.engine.autoreload.unsubscribe()
-            cherrypy.engine.timeout_monitor.unsubscribe()
-            #cherrypy.engine.autoreload.frequency = 300
-            # cherrypy.config.update({'engine.autoreload.on': False})
-            cherrypy.engine.signals.subscribe()
-            
-            #cherrypy.engine.timeout_monitor.unsubscribe()
-            
-            
-            config = ConfigHandler(self.config)
-            command = CommandHandler()
-            adapters = AdaptersHandler()
-
-            value = ValueHandler()
-            fileHandler = FileProvider()
-            
-            
-            self.dispatcher.connect(name='main'      , route='/'                 , controller=self.main    , action='get')
-            self.dispatcher.connect(name='config'    , route='/config'           , controller=config  , action='get')
-            
-            self.dispatcher.connect(name='command'   , route='/command/input'    , controller=command , action='postInput')
-            self.dispatcher.connect(name='command'   , route='/command/output'   , controller=command , action='postOutput')
-
-            self.dispatcher.connect(name='value_in'  , route='/value/input'      , controller=value   , action='input')
-            self.dispatcher.connect(name='value_out' , route='/value/output'     , controller=value   , action='output')
-
-            self.dispatcher.connect(name='adapters'  , route='/adapters'         , controller=adapters, action='get')
-            # serverEvent-Requests
-            #dispatcher.connect(name='events'    , route='/events'           , controller=event   , action='event')
-
-            self.dispatcher.connect(name='files'     , route='/files/{path:.*?}' , controller=fileHandler, action='file')
-            
-   
-            #
-            # enable websocket, if the libs are available.
-            #
-            
-            WebSocketPlugin(cherrypy.engine).subscribe()
-            cherrypy.tools.websocket = WebSocketTool()
-            
-            animationHandler = AnimationHandler()
-            
-            self.dispatcher.connect(name='adapterAnimation'   , route='/ws'    , controller=animationHandler  , action='ws')
-            # self.dispatcher.connect(name='adapterAnimation'   , route='/pendel', controller=pendelHandler  , action='ws')
-                 
-       
-            self.conf['/ws'] =   {
-                'tools.websocket.on': True,
-                'tools.websocket.handler_cls': AdapterAnimationWebSocket
-            }      
-#             self.conf['/pendel'] =   {
-#                 'tools.websocket.on': True,
-#                 'tools.websocket.handler_cls': PendelWebSocket
-#             }      
-           
-            if self.guiRemote:
-                cherrypy.config.update( { 'server.socket_port':  8080,
-                                          'server.socket_host': '0.0.0.0' 
-                                        } )
-            else:
-                cherrypy.config.update( { 'server.socket_port':  8080,
-                                          'server.socket_host': '127.0.0.1'
-                                        } )
-        
-            cherrypy.tree.mount(root=None, config=self.conf)
-            
-            cherrypy.engine.start()
-            self._running.set()
-            
-            cherrypy.engine.block()
-        
-        if logger.isEnabledFor(logging.DEBUG):    
-            logger.debug("ServerThread thread stopped")
+        settings = {
+            'debug': False, 
+            'autoreload' : False,
+            # 'static_path': do not set. favicon.ico will be read from here, when set.
+        }
     
-    def cherrypy_exithandler(self):
-        logger.error("cherrypy cherrypy_exithandler")
-            
+        cPath = os.getcwd()
+        if debug: print (cPath)
+        
+        handlers =  [
+                        ## general pages
+                        ( r"/"                          , ScratchClientMain,      {"additionalpaths" : self.listOfAdditionalPaths }     ),
+                        
+                        ## monitoring, simulation
+                        ( r"/config"                    , ConfigHandler                 ),
+                        ( r"/adapters"                  , AdaptersHandler               ),
+                        ( r"/release"                   , ReleaseHandler                ),
+                        
+                        ( r"/usage14"                   , Usage14Handler                ),
+                        
+                        ( r"/ws"                        , AdapterAnimationWebSocket     ),
+                        ( r"/command/input"             , CommandHandler_InputSide      ),
+                        ( r"/command/output"            , CommandHandler_OutputSide     ),
+                        ( r"/value/input"               , ValueHandler_InputSide        ),
+                        ( r"/value/output"              , ValueHandler_OutputSide       ),
+                        
+                        ## scratchX connection
+                        ## some convenience url provided
+                        ##
+                        (r"/scratchx/js/extension.js"   , ScratchXConfigHandler,  {"extensionFile": "scratchx/js/extension3.js"  }       ),
+                        (r"/scratch2/js/extension.js"   , ScratchXConfigHandler,  {"extensionFile": "scratchx/js/extension3.js"  }       ),
+                        
+                        (r"/scratchx/js/extension2.js"  , ScratchXConfigHandler,  {"extensionFile": "scratchx/js/extension2.js" }        ),
+                        (r"/scratch2/js/extension2.js"  , ScratchXConfigHandler,  {"extensionFile": "scratchx/js/extension2.js" }        ),
+                        
+                        (r"/scratchx/js/extension3.js"  , ScratchXConfigHandler,  {"extensionFile": "scratchx/js/extension3.js" }        ),
+                        (r"/scratch2/js/extension3.js"  , ScratchXConfigHandler,  {"extensionFile": "scratchx/js/extension3.js" }        ),
+                        
+                        (r"/scratchx/ws"                , ScratchXWebSocketHandler      ),
+                        
+                        (r"/(scratchx/documentation/scratchClient\.html)"
+                                                        , TemplateHandler      ,  {"path": "template"}    ),
+                        (r"/(scratch2/documentation/scratchClient\.html)"
+                                                        , TemplateHandler      ,  {"path": "template"}    ),
+                        ## general purpose file connections 
+                        (r"/(favicon.*)"            , tornado.web.StaticFileHandler, 
+                                                                                  {"path": "htdocs/icon"} ),
+                        (r"/(.*)"                       , tornado.web.StaticFileHandler, 
+                                                                                  {"path": "htdocs"}      ),
+                     ]
+
+        for additionalHandler in self.listOfAdditionalHandlers:
+            handlers.append( ( 
+                               additionalHandler['route'], 
+                               additionalHandler['pluginWebSocketClass']
+                             ))
+
+        return tornado.web.Application(handlers, **settings)
+  
+
+    def run(self):
+        logger.debug("ServerThread thread started")
+        #
+        # see https://github.com/tornadoweb/tornado/issues/2308
+        #
+        try:
+            # asyncio.set_event_loop_policy(tornado.platform.asyncio.AnyThreadEventLoopPolicy())
+            asyncio.set_event_loop(asyncio.new_event_loop())
+        except Exception as e:
+            logger.warning("AnyThreadEventLoopPolicy exception " + str(e) )
+            pass
+        
+        self.app = self.make_app()
+        #
+        # in case the 8080-port is already open and timeout running,
+        # then reopen again and again till port is available
+        if True:
+            while not ( self.stopped()):
+                try:
+                    self.server = self.app.listen( 8080)
+                    break
+                except Exception as e:
+                    time.sleep(0.3)
+                    if debug:
+                        traceback.print_exc()
+                  
+            if self.stopped():
+                if debug: print("already stopped ??")
+                return
+        else:
+            self.server = self.app.listen( 8080)
+                    
+        # tornado.log.enable_pretty_logging( )
+        global localIOloop
+        localIOloop = self.ioloop = tornado.ioloop.IOLoop.current()
+        logger.debug("ServerThread tornado localIOloop start...")
+        self.ioloop.start()
+        logger.debug("ServerThread tornado localIOloop is terminated")
+           
     def registerCommandResolver(self, _commandResolver):
         global commandResolver
         commandResolver = _commandResolver
 
+
+class ScratchXHandler( scratchClient.ClientHandler ):
+    
+    def __init__(self, manager):  
+        self.name="scratchXHandler"
+        self.manager = manager 
+
+        global scratchXHandler
+        scratchXHandler = self
+    
+    def getName(self):
+        return self.name
+      
+    def start(self):
+        pass  
+    
+    def stop(self):
+        pass  
+    
+    def event_disconnect(self):
+        self.manager.setActive(self.getName(), False)
+        
+    def event_connect(self):
+        self.manager.setActive(self.getName(), True)

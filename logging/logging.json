@@ -1,0 +1,56 @@
+#
+# logging setup for scratchClient
+#
+# tornado needs special loggers, as it defines its own hierarchy if these are not available
+#
+# ( these files are preprocessed to remove comment lines.)
+{
+    "version": 1,
+    "disable_existing_loggers": false,
+
+    "loggers": {
+
+        "": {
+            "level": "WARN",
+            "propagate": true,
+            "handlers": [   "default"  ]
+        },
+        #
+        # tornado logging
+        #
+        "tornado.access": {
+            "level": "WARN",
+            "propagate": false,
+            "handlers": [  "tornado"   ]
+        },
+        "tornado.application": {
+            "level": "WARN",
+            "propagate": false,
+            "handlers": [  "tornado"   ]
+        },
+        "tornado.general": {
+            "level": "WARN",
+            "propagate": false,
+            "handlers": [  "tornado"   ]
+        }
+    },
+    
+    "handlers": {
+        "default": {
+            "formatter": "standard",
+            "class": "logging.StreamHandler",
+            "level": "DEBUG"
+        },
+        "tornado": {
+            "formatter": "standard",
+            "class": "logging.StreamHandler",
+            "level": "WARN"
+        }
+    },
+    
+    "formatters": {
+        "standard": {
+            "format": "%(asctime)s [%(levelname)s] %(name)s - %(lineno)d: %(message)s"
+        }
+    }
+}

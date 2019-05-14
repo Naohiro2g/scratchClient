@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+% if debug:
+<!-- htdocs/template/scratchUsage14.html start -->
+% endif
+<html>
+
+    <%include file="../template/header.html" />
+    <body>
+		<h1>Scratch Usage for the Adapters</h1>
+		<div class='chapter'>
+	    <p>When using scratch 1.4, there are a few configuration steps needed in order to make the adapters from scratchClient available.</p>
+	    <p>The steps described here are tailored to the current configuration in scratchClient.</p> 
+	    </div>
+	    <h2>Enable 'remote sensor connections'</h2>
+	    <div class='chapter'>
+	    <p>In scratch, enable 'remote sensor connections'</p>
+	    <p>In the scratch palette, go to the 'Sensing' palette<br/>
+	    <img src='/images/scratch14/enable_remote_sensor_0.png'/></p>
+	    
+	    <p>With the mouse, rightclick in the sensor reporter block<br/>
+	    <img src='/images/scratch14/enable_remote_sensor_1.png'/></p>
+	    
+	    <p>In the context menu, select 'enable remote sensor connections' <br/>
+	    <img src='/images/scratch14/enable_remote_sensor_2.png'/></p>
+	    
+	    <p>Scratch displays a dialog, just press ok  <br/>
+	    <img src='/images/scratch14/enable_remote_sensor_3.png'/></p>
+	    </div>
+	    
+	    
+	    <h2>Sending values to scratchClient</h2>
+	    <div class='chapter'>
+	    % if len(list_adapter_input_values) == 0:
+	        <p>There are no variables sent from scratch to the current adapters.</p>
+	    % else:
+	       <p>In scratch, create variables with the following names:<p>
+	        <ul class='scratchName'>
+	        % for n in list_adapter_input_values: 
+	            <li class='scratchName'>${n}</li>
+	        % endfor
+	        </ul> 
+	         <p>In the Variables palette <br/><img src="/images/scratch14/variables_0.png"/></p>
+	         <p>Make a variable <br/><img src="/images/scratch14/variables_1.png"/></p>
+	         <p>Be sure to use the scope 'for all sprites'.</p>
+	        
+	    % endif
+	    </div>
+	
+	
+	    <h2>Sending events to scratchClient</h2>
+	    <div class='chapter'>
+	    % if len(list_adapter_input_commands) == 0:
+	        <p>There are no events sent from scratch to the current adapters.</p>
+	    % else:
+	        <p>In scratch, use broadcast events with the following names:<p>
+	        <ul class='scratchName'>
+	        % for n in list_adapter_input_commands: 
+	            <li class='scratchName'>${n}</li>
+	        % endfor
+	        </ul>
+	        
+	         <p>In the Control palette <br/><img src="/images/scratch14/broadcast_0.png"/></p>
+	         <p>Select broadcast block <br/><img src="/images/scratch14/broadcast_1.png"/></p>
+	         <p>Click on the small black arrow and select 'new' <br/><img src="/images/scratch14/broadcast_2.png"/></p>
+	         <p>Enter the broadcast name into the dialog<br/><img src="/images/scratch14/broadcast_3.png"/> <br/>Use  exactly the names given in the list above.</p>
+	    % endif
+	    </div>
+	    
+	    
+	    <h2>Receiving values from the adapters to scratch</h2>
+	    <div class='chapter'>
+	    <p>Values from the adapters to scratch are sent through sensor values<p>
+	    
+	    % if len(list_adapter_output_values) == 0:
+	        <p>There are no sensor values sent by current adapters to scratch.</p>
+	    % else:
+	        <p>The values from the adapters are sent through sensor values to scratch:</p> 
+	        <ul class='scratchName'>
+	        % for n in list_adapter_output_values: 
+	            <li class='scratchName'>${n}</li>
+	        % endfor
+	        </ul> 
+	        
+	        <p>The names displayed contain some names which are always included. The names from the adapters are added at the end of the list<br/>
+	        <img src="/images/scratch14/sensor_3.png"/><br/>
+	        Please note that your scratch will give a different view than this screenshot.
+	        </p>
+	        <p>The list gets populated when the adapter send values. </p>
+	         
+	    % endif
+	    </div>
+	    
+	    
+	    <h2>Receiving events from the adapters in scratch</h2>
+	    <div class='chapter'>
+	    <p>scratch receives broadcast events from the adapters<p>
+	    
+	    % if len(list_adapter_output_commands) == 0:
+	        <p>There are no events sent from the current adapters to scratch.</p>
+	    % else:
+	        <p>The event names from the adapters are:</p> 
+	        <ul class='scratchName'>
+	        % for n in list_adapter_output_commands: 
+	            <li class='scratchName'>${n}</li>
+	        % endfor
+	        </ul> 
+	        <p>The events are triggering the 'event hat' blocks. <br/><img src="/images/scratch14/event_0.png"/> </p>
+	        <p>The list in the block gets populated when events are arriving. Or use the edit feature to  add events manually from the list above</p>
+	    % endif
+	</div>
+	
+	<%include file="../template/footer.html" />
+	
+	</body>
+</html>
+% if debug:
+<!-- htdocs/template/scratchUsage14.html end -->
+% endif
+

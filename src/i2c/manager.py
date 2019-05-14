@@ -35,7 +35,7 @@ try:
 except ImportError as e:
     logger.warn(e)        
 
-debug=True
+debug=False
 
 class _I2CData:
     i2cbus = None
@@ -48,11 +48,11 @@ class _I2CData:
         
          
 class _I2CRegistry:
-    spiBusDeviceHandler = None
     
     def __init__(self):
         self.spiBusDeviceHandler = {}
-     
+        self.locks = dict()
+        
     def getBusDeviceHandler(self, bus, address):
         k = str(bus) + '$' + str(address)
         try:
@@ -71,6 +71,14 @@ class _I2CRegistry:
         self.spiBusDeviceHandler = {}
  
  
+    def getLock(self, bus, address):
+        k = str(bus) + '$' + str(address)
+        if k in self.locks:
+            return self.locks[k]
+        
+        lock = threading.Lock()
+        self.locks[k] = lock
+        return lock   
         
 class I2CManager:
     """I2CManager for i2c access"""
@@ -79,29 +87,46 @@ class I2CManager:
 
     def __init__(self):
         self.i2cRegistry = _I2CRegistry()
+        self.lockPWMAccess = threading.Lock()
 
     def setActive(self, state):
         """called from main module, but has no function for this manager"""
         pass
 
     def open(self, bus, address ):
-        i2cbus = self.i2cRegistry.getBusDeviceHandler(bus, address)
-        if i2cbus == None:
-
+        if debug:
+            print("I2CManager open()")
+            
+        self.lockPWMAccess.acquire()
+        try:
+            i2cbus = self.i2cRegistry.getBusDeviceHandler(bus, address)
+            if debug:
+                if i2cbus == None:
+                    logger.error("i2c manager open, no data in registry for bus %d", bus)
             try:
                 i2cbus = smbus.SMBus( bus)
             except IOError as e:
                 print("error", bus, e)
                 logger.error("i2c manager open, error %s bus %d", e, bus)
+                return None
             
             self.i2cRegistry.addBusDeviceHandler(
                                                  bus,
                                                  address,
                                                  i2cbus )
+        finally:
+            self.lockPWMAccess.release()
         return i2cbus
     
+    def getLock(self, bus, address):
+        lock = self.i2cRegistry.getLock(bus, address)
+        return lock
+        
     def getValue(self, bus, address, channel):
         i2cData = self.i2cRegistry.getBusDeviceHandler(bus, address)
+        print("TODO", "i2cData", i2cData)
+        print("TODO", "i2cData.i2cHandler", i2cData.i2cHandler)
+        # help(i2cData)
         return i2cData.i2cHandler.getValue(i2cData, channel)
     
     def getValues(self, bus, address, channel):

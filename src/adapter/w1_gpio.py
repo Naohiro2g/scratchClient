@@ -22,6 +22,7 @@
 import adapter
 import glob
 import logging
+import os
 import re
 
 logger = logging.getLogger(__name__)
@@ -40,10 +41,19 @@ class W1_DS1820 (adapter.adapters.Adapter):
     
     def __init__(self):
         adapter.adapters.Adapter.__init__(self)
+        self.baseDir = '/sys/bus/w1/devices'
+
+        # fallback to a local directory in case that the w1 driver is not loaded 
+        if debug:
+            if os.path.exists( self.baseDir):
+                pass
+            else:
+                self.baseDir = '/home/pi'
         # self.start()
         pass
 
-    baseDir = '/sys/bus/w1/devices'
+    
+    
     
     #
     # report file errors only once
@@ -119,14 +129,14 @@ class W1_DS1820 (adapter.adapters.Adapter):
             print("names", names)
         
         if configuredDevice in names:
-            # the configred path is found. Perfect.
+            # the configured path is found. Perfect.
             return
         if len(names) == 0:
             logger.warn('{name:s}: no DS18-device found. '.format(name=self.name ))
         
         devices = []
         for configuredDevice in names:
-            devices.append( configuredDevice[ len(self.baseDir + '/') : ] )
+            devices.append( configuredDevice[ len(self.baseDir ) : ] )
         logger.warn('{name:s}: device {cn:s} not found. But found {de:s}. Edit config file! '.format(name=self.name, cn=w1_device, de=str(devices) ))
         
         

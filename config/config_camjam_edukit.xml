@@ -1,0 +1,109 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<config version='1.0'
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:noNamespaceSchemaLocation="config.xsd" >
+	<!--
+	# ===========================================================================
+	# Copyright (C) 2018  Gerhard Hepp
+	#
+	# This program is free software; you can redistribute it and/or modify it under the terms of
+	# the GNU General Public License as published by the Free Software Foundation; either version 2
+	# of the License, or (at your option) any later version.
+	#
+	# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+	# without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+	# See the GNU General Public License for more details.
+	#
+	# You should have received a copy of the GNU General Public License along with this program; if
+	# not, write to the Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
+	# MA 02110, USA
+	# ===========================================================================
+	-->
+	<description>
+		adapters for jamjam edu kit 
+		is untested, documentation only available
+	</description>
+
+	<!-- =========================================================================== -->
+    <adapter class='adapter.gpio.GpioMotorPWM'  name='motor_A'>
+        <description>Motor A control</description>
+
+        <gpio port='GPIO10'   alias='a'>
+            <default dir='OUT' pull='PUD_OFF' default='low' />
+            <active dir='RESERVED' />
+        </gpio>
+        <gpio port='GPIO09' alias='b'>
+            <default dir='OUT' pull='PUD_OFF' default='low' />
+            <active dir='RESERVED' />
+        </gpio>
+
+        <input_value name='speed'>
+            <variable name='speed_A'/>
+        </input_value>
+
+        <parameter name='frequency' value='50' />
+        <!--  speed is initial speed -->
+        <parameter name='speed' value='0' />
+    </adapter>
+    
+    <!--  ============================================================ -->
+    <adapter class='adapter.gpio.GpioMotorPWM'  name='motor_B'>
+        <description>Motor A control</description>
+
+        <gpio port='GPIO08'   alias='a'>
+            <default dir='OUT' pull='PUD_OFF' default='low' />
+            <active dir='RESERVED' />
+        </gpio>
+        <gpio port='GPIO07' alias='b'>
+            <default dir='OUT' pull='PUD_OFF' default='low' />
+            <active dir='RESERVED' />
+        </gpio>
+
+        <input_value name='speed'>
+            <variable name='speed_B'/>
+        </input_value>
+
+        <parameter name='frequency' value='50' />
+        <!--  speed is initial speed -->
+        <parameter name='speed' value='0' />
+    </adapter>
+    <!--  ============================================================ -->
+    <adapter class='adapter.gpio.GpioInput' name='linefollower'>
+        <!-- no description, urgg -->
+        <gpio port='GPIO25'>
+            <default dir='IN' pull='PUD_UP'  />
+            <active dir='IN' pull='PUD_UP'/>
+        </gpio>
+        <output_value name='button'>
+            <sensor name='linefollower'/>
+        </output_value>
+        <parameter name='poll.interval' value='0.05' />
+        <parameter name='value.inverse' value='false' />
+    </adapter>
+    <!--  ============================================================ -->
+    <adapter class='adapter.pigpiodAdapter.HC_SR04_Adapter'  name='distance'>
+        <description>HC-SR04 controller</description>
+
+        <!--  gpio are not used directly. Set 'dir' to 'RESERVED'. -->
+        
+        <gpio port='GPIO17'   alias='trigger'>
+            <default dir='RESERVED' />
+            <active dir='RESERVED' />
+        </gpio>
+        <gpio port='GPIO18' alias='echo'>
+            <default dir='RESERVED' />
+            <active dir='RESERVED' />
+        </gpio>
+
+        <output_value name='time'>
+            <sensor name='time'/>
+        </output_value>
+
+        <output_value name='error'>
+            <sensor name='error'/>
+        </output_value>
+
+         <!--  minimal value 0.02 -->
+         <parameter name='poll.interval' value='0.3' />
+    </adapter>
+</config>

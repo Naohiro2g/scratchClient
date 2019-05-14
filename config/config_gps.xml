@@ -1,0 +1,58 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<config version='1.0'
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="config.xsd" >
+    
+	<!-- This adapter is provided by SFYRAKIS -->
+	
+	<description>
+		GPS-GY-GPS6MV2 RECEIVE messages.
+    </description>
+
+    <!-- =========================================================================== -->
+    <adapter class='adapter.gps.GY_GPS6MV2'  name='GPS-GY-GPS6MV2'>
+        <description>GPS module GY-GPS6MV2</description>
+       
+        <output_value name='time'>
+            <sensor name='Time'/>
+        </output_value>
+
+        <output_value name='lat'>
+            <sensor name='Latitude'/>
+        </output_value>
+
+        <output_value name='lon'>
+            <sensor name='Longitude'/>
+        </output_value>
+
+        <output_value name='alt'>
+            <sensor name='Altitude'/>
+        </output_value>
+
+        <output_value name='speed'>
+            <sensor name='Speed'/>
+        </output_value>
+
+        <output_value name='track'>
+            <sensor name='Course'/>
+        </output_value>
+
+        <output_value name='epx'>
+            <sensor name='Latitude_Error'/>
+        </output_value>
+
+        <output_value name='epy'>
+            <sensor name='Longitude_Error'/>
+        </output_value>
+
+        <output_value name='epv'>
+            <sensor name='Altitude_Error'/>
+        </output_value>
+
+        <output_value name='eps'>
+            <sensor name='Speed_Error'/>
+        </output_value> 
+
+	   <parameter name='poll.interval' value='0.5' />
+    </adapter>
+
+</config>

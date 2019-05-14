@@ -279,24 +279,24 @@ class Atmel328_ADC_Adapter (Atmel328_Adapter):
         self.int_spi_bus =      int(self.parameters['spi.bus'])
         self.int_spi_device =   int(self.parameters['spi.device']) 
 
-        if self.parameters.has_key('adc.0.enable'):
+        if 'adc.0.enable' in self.parameters:
             self.int_adc_0_enable = int(self.parameters['adc.0.enable'])
-        if self.parameters.has_key('adc.1.enable'):
+        if 'adc.1.enable' in self.parameters:
             self.int_adc_1_enable = int(self.parameters['adc.1.enable'])
 
-        if self.parameters.has_key('adc.0.reference'):
+        if 'adc.0.reference' in self.parameters:
             self.str_adc_0_reference = self.parameters['adc.0.reference']
-        if self.parameters.has_key('adc.1.reference'):
+        if 'adc.1.reference' in self.parameters:
             self.str_adc_1_reference = self.parameters['adc.1.reference']
         
         if debug:
             print(self.parameters)
         
-        if self.parameters.has_key('timer.enable'):
+        if 'timer.enable' in self.parameters:
             self.int_timer_enable = int(self.parameters['timer.enable'])
-        if self.parameters.has_key('timer.noisecanceller'):
+        if 'timer.noisecanceller' in self.parameters:
             self.int_timer_noisecanceller = int(self.parameters['timer.noisecanceller'])
-        if self.parameters.has_key('timer.mode'):
+        if 'timer.mode' in self.parameters:
             self.timer_mode = self.parameters['timer.mode']
             
         if state == True:
@@ -502,25 +502,25 @@ class Atmel328_IRC_Adapter ( Atmel328_Adapter):
         self.int_spi_bus =      int(self.parameters['spi.bus'])
         self.int_spi_device =   int(self.parameters['spi.device']) 
 
-        if self.parameters.has_key('adc.0.enable'):
+        if 'adc.0.enable' in self.parameters:
             self.int_adc_0_enable = int(self.parameters['adc.0.enable'])
-        if self.parameters.has_key('adc.1.enable'):
+        if 'adc.1.enable' in self.parameters:
             self.int_adc_1_enable = int(self.parameters['adc.1.enable'])
 
-        if self.parameters.has_key('adc.0.reference'):
+        if 'adc.0.reference' in self.parameters:
             self.str_adc_0_reference = self.parameters['adc.0.reference']
-        if self.parameters.has_key('adc.1.reference'):
+        if 'adc.1.reference' in self.parameters:
             self.str_adc_1_reference = self.parameters['adc.1.reference']
 
-        if self.parameters.has_key('irc.enable'):
+        if 'irc.enable' in self.parameters:
             self.int_irc_enable = int(self.parameters['irc.enable'])
         
         if debug:
             print(self.parameters)
         
-        if self.parameters.has_key('timer.enable'):
+        if 'timer.enable' in self.parameters:
             self.int_timer_enable = int(self.parameters['timer.enable'])
-        if self.parameters.has_key('timer.noisecanceller'):
+        if 'timer.noisecanceller' in self.parameters:
             self.int_timer_noisecanceller = int(self.parameters['timer.noisecanceller'])
             
         if state == True:
@@ -980,14 +980,14 @@ class Atmel328_HCSR04_Adapter (Atmel328_Adapter):
         self.int_spi_bus =      int(self.parameters['spi.bus'])
         self.int_spi_device =   int(self.parameters['spi.device']) 
 
-        if self.parameters.has_key('device.0.enable'):
+        if 'device.0.enable' in self.parameters:
             self.int_device_0_enable = int(self.parameters['device.0.enable'])
-        if self.parameters.has_key('device.1.enable'):
+        if 'device.1.enable' in self.parameters:
             self.int_device_1_enable = int(self.parameters['device.1.enable'])
 
-        if self.parameters.has_key('device.2.enable'):
+        if 'device.2.enable' in self.parameters:
             self.int_device_2_enable = int(self.parameters['device.2.enable'])
-        if self.parameters.has_key('device.3.enable'):
+        if 'device.3.enable' in self.parameters:
             self.int_device_3_enable = int(self.parameters['device.3.enable'])
 
         if debug:

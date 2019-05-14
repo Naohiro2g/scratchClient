@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+
+% if debug:
+<!-- htdocs/template/adapters.html start -->
+% endif
+
+<html>
+    <%include file="../template/header.html" />
+    
+    <body>
+    
+        <div>
+            ${html_preamble}
+        </div>
+
+        % if debug_grid:
+           <p class='warn'>This chart shows grid lines as 'debug_grid' is enabled. This is a debugging feature and should not be enabled in the distribution.</p>
+        % endif
+        % if debug:
+           <p class='warn'>This chart shows mouse pointer x, y coordinates as 'debug' is enabled. This is a debugging feature and should not be enabled in the distribution.</p>
+        % endif
+
+        <h1>ScratchClient, Adapters</h1>
+        
+        <p>Konfigurationsdatei: ${configName}</p>
+        
+        <p>${description}</p>
+        
+
+        <div id='DIV.svg'>
+            ${svg}
+        </div>
+        
+        <script type="text/javascript">
+            ${jScript}
+        </script>   
+        
+        <ul id='eventList'>
+        </ul>
+        
+        <%include file="../template/footer.html" />
+    </body>
+</html>
+
+% if debug:
+<!-- htdocs/template/adapters.html end -->
+% endif

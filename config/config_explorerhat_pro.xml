@@ -1,0 +1,430 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<config version='1.0' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="config.xsd">
+   <!--
+    # ===========================================================================
+    # Copyright (C) 2017  Gerhard Hepp
+    #
+    # This program is free software; you can redistribute it and/or modify it under the terms of
+    # the GNU General Public License as published by the Free Software Foundation; either version 2
+    # of the License, or (at your option) any later version.
+    #
+    # This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+    # without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    # See the GNU General Public License for more details.
+    #
+    # You should have received a copy of the GNU General Public License along with this program; if
+    # not, write to the Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
+    # MA 02110, USA
+    # ===========================================================================
+    -->
+    
+    <description>Adapters for pimoroni explorer hat pro.
+        </description>
+
+
+    <!-- =========================================================================== -->
+    <adapter class='adapter.gpio.GpioOutput' name='led1'>
+        <description>LED1</description>
+        
+        <gpio port='GPIO04'>
+            <default dir='OUT' default='low' />
+            <active dir='OUT' default='low' />
+        </gpio>
+        <input name='low'>
+            <broadcast name='led1_OFF' />
+        </input>
+        <input name='high'>
+            <broadcast name='led1_ON' />
+        </input>
+    </adapter>
+    
+    <!-- if needing variable based input, then use the adapter.gpio.GpioValueOutputadapter
+    <adapter class='adapter.gpio.GpioValueOutput'  name='led1'>
+        <description>LED0</description>
+
+        <gpio port='GPIO04'>
+            <default dir='OUT'  default='low' />
+            <active  dir='OUT'  default='low' />
+        </gpio>
+        <input_value name='value'>
+            <variable name='led1'/>
+        </input_value>
+    </adapter>
+     -->
+    <!-- =========================================================================== -->
+    <adapter class='adapter.gpio.GpioOutput' name='led2'>
+        <description>LED2</description>
+        
+        <gpio port='GPIO17'>
+            <default dir='OUT' default='low' />
+            <active dir='OUT' default='low' />
+        </gpio>
+        <input name='low'>
+            <broadcast name='led2_OFF' />
+        </input>
+        <input name='high'>
+            <broadcast name='led2_ON' />
+        </input>
+    </adapter>
+    <!-- =========================================================================== -->
+    <adapter class='adapter.gpio.GpioOutput' name='led3'>
+        <description>LED3</description>
+        
+        <gpio port='GPIO27'>
+            <default dir='OUT' default='low' />
+            <active dir='OUT' default='low' />
+        </gpio>
+        <input name='low'>
+            <broadcast name='led3_OFF' />
+        </input>
+        <input name='high'>
+            <broadcast name='led3_ON' />
+        </input>
+    </adapter>
+    <!-- =========================================================================== -->
+    <adapter class='adapter.gpio.GpioOutput' name='led4'>
+        <description>LED4</description>
+        
+        <gpio port='GPIO05'>
+            <default dir='OUT' default='low' />
+            <active dir='OUT' default='low' />
+        </gpio>
+        <input name='low'>
+            <broadcast name='led4_OFF' />
+        </input>
+        <input name='high'>
+            <broadcast name='led4_ON' />
+        </input>
+    </adapter>
+    <!-- =========================================================================== -->
+    <adapter class='adapter.gpio.GpioOutput' name='output1'>
+        <description>output1</description>
+        
+        <gpio port='GPIO06'>
+            <default dir='OUT' default='low' />
+            <active dir='OUT' default='low' />
+        </gpio>
+        <input name='low'>
+            <broadcast name='output1_OFF' />
+        </input>
+        <input name='high'>
+            <broadcast name='output1_ON' />
+        </input>
+    </adapter>
+    <!-- =========================================================================== -->
+    <adapter class='adapter.gpio.GpioOutput' name='output2'>
+        <description>output2</description>
+        
+        <gpio port='GPIO12'>
+            <default dir='OUT' default='low' />
+            <active dir='OUT' default='low' />
+        </gpio>
+        <input name='low'>
+            <broadcast name='output2_OFF' />
+        </input>
+        <input name='high'>
+            <broadcast name='output2_ON' />
+        </input>
+    </adapter>
+    <!-- =========================================================================== -->
+    <adapter class='adapter.gpio.GpioOutput' name='output3'>
+        <description>output3</description>
+        
+        <gpio port='GPIO13'>
+            <default dir='OUT' default='low' />
+            <active dir='OUT' default='low' />
+        </gpio>
+        <input name='low'>
+            <broadcast name='output3_OFF' />
+        </input>
+        <input name='high'>
+            <broadcast name='output3_ON' />
+        </input>
+    </adapter>
+    <!-- =========================================================================== -->
+    <adapter class='adapter.gpio.GpioOutput' name='output4'>
+        <description>output4</description>
+        
+        <gpio port='GPIO16'>
+            <default dir='OUT' default='low' />
+            <active dir='OUT' default='low' />
+        </gpio>
+        <input name='low'>
+            <broadcast name='output4_OFF' />
+        </input>
+        <input name='high'>
+            <broadcast name='output4_ON' />
+        </input>
+    </adapter>
+
+    <!-- =========================================================================== -->
+    <adapter class='adapter.i2cAdapter.ADC_ADS1015_Input' name='adc_A1'>
+        <description>ADC-Value from ADS1015 (single ended)</description>
+        <output_value name='adc'>
+            <sensor name='adc_A1' />
+        </output_value>
+
+        <parameter name='poll.interval' value='0.075' />
+
+        <!-- bus is '1' for RPi Release 2 -->
+        <parameter name='i2c.bus' value='1' />
+
+        <!-- address is '0x48' for adafruit ADS1015 -->
+        <!-- other option are ADDR PIN SLAVE ADDRESS 
+                              Ground 0b1001000 0x48 
+                              VDD    0b1001001 0x49 
+                              SDA    0b1001010 0x4A 
+                              SCL    0b1001011 0x4b -->
+        <parameter name='i2c.address' value='0x48' />
+
+        <parameter name='adc.channel' value='3' />
+        <!-- optional -->
+        <parameter name='adc.sps'  value='920' />
+        <parameter name='adc.pga'  value='6144' />
+    </adapter>
+    <!-- =========================================================================== -->
+
+    <adapter class='adapter.i2cAdapter.ADC_ADS1015_Input' name='adc_A2'>
+        <description>ADC-Value from ADS1015 (single ended)</description>
+        <output_value name='adc'>
+            <sensor name='adc_A2' />
+        </output_value>
+
+        <parameter name='poll.interval' value='0.075' />
+
+        <!-- bus is '1' for RPi Release 2 -->
+        <parameter name='i2c.bus' value='1' />
+
+        <!-- address is '0x48' for adafruit ADS1015 -->
+        <!-- other option are ADDR PIN SLAVE ADDRESS 
+                              Ground 0b1001000 0x48 
+                              VDD    0b1001001 0x49 
+                              SDA    0b1001010 0x4A 
+                              SCL    0b1001011 0x4b -->
+        <parameter name='i2c.address' value='0x48' />
+
+        <parameter name='adc.channel' value='2' />
+        <!-- optional -->
+        <parameter name='adc.sps'  value='920' />
+        <parameter name='adc.pga'  value='6144' />
+    </adapter>
+    <!-- =========================================================================== -->
+    <adapter class='adapter.i2cAdapter.ADC_ADS1015_Input' name='adc_A3'>
+        <description>ADC-Value from ADS1015 (single ended)</description>
+        <output_value name='adc'>
+            <sensor name='adc_A3' />
+        </output_value>
+
+        <parameter name='poll.interval' value='0.075' />
+
+        <!-- bus is '1' for RPi Release 2 -->
+        <parameter name='i2c.bus' value='1' />
+
+        <!-- address is '0x48' for adafruit ADS1015 -->
+        <!-- other option are ADDR PIN SLAVE ADDRESS 
+                              Ground 0b1001000 0x48 
+                              VDD    0b1001001 0x49 
+                              SDA    0b1001010 0x4A 
+                              SCL    0b1001011 0x4b -->
+        <parameter name='i2c.address' value='0x48' />
+
+        <parameter name='adc.channel' value='1' />
+        <!-- optional -->
+        <parameter name='adc.sps'  value='920' />
+        <parameter name='adc.pga'  value='6144' />
+    </adapter>
+    <!-- =========================================================================== -->
+    <adapter class='adapter.i2cAdapter.ADC_ADS1015_Input' name='adc_A4'>
+        <description>ADC-Value from ADS1015 (single ended)</description>
+        <output_value name='adc'>
+            <sensor name='adc_A4' />
+        </output_value>
+
+        <parameter name='poll.interval' value='0.075' />
+
+        <!-- bus is '1' for RPi Release 2 -->
+        <parameter name='i2c.bus' value='1' />
+
+        <!-- address is '0x48' for adafruit ADS1015 -->
+        <!-- other option are ADDR PIN SLAVE ADDRESS 
+                              Ground 0b1001000 0x48 
+                              VDD    0b1001001 0x49 
+                              SDA    0b1001010 0x4A 
+                              SCL     0b1001011 0x4b -->
+        <parameter name='i2c.address' value='0x48' />
+
+        <parameter name='adc.channel' value='0' />
+        <!-- optional -->
+        <parameter name='adc.sps'  value='920' />
+        <parameter name='adc.pga'  value='6144' />
+    </adapter>
+
+    <!-- =========================================================================== -->
+    <adapter class='adapter.cap1xxxAdapter.CAP1208Adapter' name='cap'>
+        <description>Capacitive sensors</description>
+
+        <output name='s0_pressed'>
+            <broadcast name='cap_5_pressed' />
+        </output>
+        <output name='s0_released'>
+            <broadcast name='cap_5_released' />
+        </output>
+
+        <output name='s1_pressed'>
+            <broadcast name='cap_6_pressed' />
+        </output>
+        <output name='s1_released'>
+            <broadcast name='cap_6_released' />
+        </output>
+
+        <output name='s2_pressed'>
+            <broadcast name='cap_7_pressed' />
+        </output>
+        <output name='s2_released'>
+            <broadcast name='cap_7_released' />
+        </output>
+
+        <output name='s3_pressed'>
+            <broadcast name='cap_8_pressed' />
+        </output>
+        <output name='s3_released'>
+            <broadcast name='cap_8_released' />
+        </output>
+
+        <output name='s4_pressed'>
+            <broadcast name='cap_1_pressed' />
+        </output>
+        <output name='s4_released'>
+            <broadcast name='cap_1_released' />
+        </output>
+
+        <output name='s5_pressed'>
+            <broadcast name='cap_2_pressed' />
+        </output>
+        <output name='s5_released'>
+            <broadcast name='cap_2_released' />
+        </output>
+
+        <output name='s6_pressed'>
+            <broadcast name='cap_3_pressed' />
+        </output>
+        <output name='s6_released'>
+            <broadcast name='cap_3_released' />
+        </output>
+
+        <output name='s7_pressed'>
+            <broadcast name='cap_4_pressed' />
+        </output>
+        <output name='s7_released'>
+            <broadcast name='cap_4_released' />
+        </output>
+
+        <parameter name='poll.interval' value='0.075' />
+
+        <!-- bus is '1' for RPi Release 2 -->
+        <parameter name='i2c.bus' value='1' />
+        <parameter name='i2c.address' value='0x28' />
+    </adapter>
+
+
+    <!-- =========================================================================== -->
+    <adapter class='adapter.gpio.GpioInput' name='input_1'>
+        <description>gpio input 1</description>
+        <gpio port='GPIO23'>
+            <default dir='IN' pull='PUD_UP'  />
+            <active dir='IN' pull='PUD_UP'/>
+        </gpio>
+        <output_value name='button'>
+            <sensor name='input_1'/>
+        </output_value>
+        <parameter name='poll.interval' value='0.05' />
+        <parameter name='value.inverse' value='false' />
+    </adapter>
+
+    <!-- =========================================================================== -->
+    <adapter class='adapter.gpio.GpioInput' name='input_2'>
+        <description>gpio input 2</description>
+        <gpio port='GPIO22'>
+            <default dir='IN' pull='PUD_UP'  />
+            <active dir='IN' pull='PUD_UP'/>
+        </gpio>
+        <output_value name='button'>
+            <sensor name='input_2'/>
+        </output_value>
+        <parameter name='poll.interval' value='0.05' />
+        <parameter name='value.inverse' value='false' />
+    </adapter>
+
+    <!-- =========================================================================== -->
+    <adapter class='adapter.gpio.GpioInput' name='input_3'>
+        <description>gpio input 3</description>
+        <gpio port='GPIO24'>
+            <default dir='IN' pull='PUD_UP'  />
+            <active dir='IN' pull='PUD_UP'/>
+        </gpio>
+        <output_value name='button'>
+            <sensor name='input_3'/>
+        </output_value>
+        <parameter name='poll.interval' value='0.05' />
+        <parameter name='value.inverse' value='false' />
+    </adapter>
+
+    <!-- =========================================================================== -->
+    <adapter class='adapter.gpio.GpioInput' name='input_4'>
+        <description>gpio input 4</description>
+        <gpio port='GPIO25'>
+            <default dir='IN' pull='PUD_UP'  />
+            <active dir='IN' pull='PUD_UP'/>
+        </gpio>
+        <output_value name='button'>
+            <sensor name='input_4'/>
+        </output_value>
+        <parameter name='poll.interval' value='0.05' />
+        <parameter name='value.inverse' value='false' />
+    </adapter>
+
+    <!-- =========================================================================== -->
+    <adapter class='adapter.gpio.GpioMotorPWM'  name='motor_pwm_1'>
+        <description>H-Bridge Motor control 1</description>
+
+        <gpio port='GPIO19'   alias='a'>
+            <default dir='OUT' pull='PUD_OFF' default='low' />
+            <active dir='RESERVED' />
+        </gpio>
+        <gpio port='GPIO20' alias='b'>
+            <default dir='OUT' pull='PUD_OFF' default='low' />
+            <active dir='RESERVED' />
+        </gpio>
+
+        <input_value name='speed'>
+            <variable name='speed_1'/>
+        </input_value>
+
+        <parameter name='frequency' value='80' />
+        <!--  speed is initial speed -->
+        <parameter name='speed' value='0' />
+    </adapter>
+    <!-- =========================================================================== -->
+    <adapter class='adapter.gpio.GpioMotorPWM'  name='motor_pwm_2'>
+        <description>H-Bridge Motor control 2</description>
+
+        <gpio port='GPIO21'   alias='a'>
+            <default dir='OUT' pull='PUD_OFF' default='low' />
+            <active dir='RESERVED' />
+        </gpio>
+        <gpio port='GPIO26' alias='b'>
+            <default dir='OUT' pull='PUD_OFF' default='low' />
+            <active dir='RESERVED' />
+        </gpio>
+
+        <input_value name='speed'>
+            <variable name='speed_2'/>
+        </input_value>
+
+        <parameter name='frequency' value='80' />
+        <!--  speed is initial speed -->
+        <parameter name='speed' value='0' />
+    </adapter>
+
+
+</config>

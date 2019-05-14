@@ -23,7 +23,7 @@ import RPIO2.PWM
 import logging
 logger = logging.getLogger(__name__)
 
-debug = True
+debug = False
 
         
 # --------------------------------------------------------------------------------------
@@ -44,15 +44,20 @@ class DMA_PWM (adapter.adapters.DMAAdapter):
         
     def rate(self, value):
         if debug:
-            print(self.name, 'rate', value)
+            print(self.name, 'rate', value, 'type', type(value))
         if self.active:
             v = 0.0
             try:
                 v = float(value)
+                if v > 100.0:
+                    v = 100.0
+                if v < 0.0:
+                    v = 0.0
             except:
                 logger.error('{name:s}: invalid value: {value:s}'.format(name=self.name, value=str( value)))
                 return
-            self.set_pwm (self.gpios[0], float(v))
+            
+            self.set_pwm (self.gpios[0], v)
             
     def setActive(self, state):
         logger.info("Adapter, setActive " + self.name + ' ' + str(state) )
@@ -122,22 +127,15 @@ class DMA_PWMServo (adapter.adapters.DMAAdapter):
     uses pwm-feature of RPi.GPIO-Library."""
     
     mandatoryParameters = {'frequency': 50.0, 'rate': 50.0}
+    optionalParametes = {'value.inverse': False,
+                         'millisecond.min': 1.0,
+                         'millisecond.max' : 2.0  }
     
     def __init__(self):
         adapter.adapters.DMAAdapter.__init__(self)
         pass
         
-    def rate(self, value):
-        """value is 0..100"""
-        if debug:
-            logger.debug("%s %s %s", self.name, 'value', value)
-        v = 0.0
-        try:
-            v = float(value)
-        except:
-            logger.error('{name:s}: invalid value: {value:s}'.format(name=self.name, value=str( value)))
-            return
-
+    def _calculateRate(self, v ):
         if v < 0:
             v = 0.0
         if v > 100:
@@ -145,17 +143,20 @@ class DMA_PWMServo (adapter.adapters.DMAAdapter):
         
         # the millisecond range (usual 1.0 to 2.0 ms can be limited or extended    
         vLow = self.getOptionalParameter('millisecond.min', 1.0 ) 
-        vHigh = self.getOptionalParameter('millisecond.max', 2.0 )  
+        vHigh = self.getOptionalParameter('millisecond.max', 2.0 )
+          
+        inverse = self.getOptionalParameter('value.inverse', 'false' ) 
+        inverse = self.isTrue(inverse)
         
         try:
             vvLow = float(vLow)
         except:
-            vvLow = 1
+            vvLow = 1.0
 
         try:
             vvHigh = float(vHigh)
         except:
-            vvHigh = 2
+            vvHigh = 2.0
         
         if vvLow < 0.5:
             vvLow = 0.5
@@ -167,33 +168,41 @@ class DMA_PWMServo (adapter.adapters.DMAAdapter):
         if debug:
             print(vLow, vHigh, vvLow, vvHigh, pRate)
                    
-        if self.value_inverse:
+        if inverse:
             # Inverse Ausgabe, und   0 --> 95%
             #                      100 --> 90%
             v = 100 - pRate
         else:
             v = pRate
             
+        return v
+    
+    def rate(self, value):
+        """value is 0..100"""
+        if debug:
+            logger.debug("%s %s %s", self.name, 'value', value)
+        v = 0.0
+        try:
+            v = float(value)
+        except:
+            logger.error('{name:s}: invalid value: {value:s}'.format(name=self.name, value=str( value)))
+            return
+
+        v = self._calculateRate(v)
+        
         if self.active:
             #self.gpioManager.setPWMDutyCycle(self.gpios[0], float(v) )
             self.set_pwm (self.gpios[0], float(v))
             
     def setActive(self, state):
         logger.info("Adapter, setActive " + self.name + ' ' + str(state) )
-        self.value_inverse = self.isTrue( self.parameters['value.inverse'] )
        
         adapter.adapters.DMAAdapter.setActive(self, state)
 
         if state == True:
             # initially send data
             v = float(self.parameters['rate'])
-            
-            if self.value_inverse:
-                # Inverse Ausgabe, und   0 --> 95%
-                #                      100 --> 90%
-                v = 95 -v/20.0
-            else:
-                v = 5 + v/20.0
+            v = self._calculateRate(v)
                 
             self.startPWM(self.gpios[0], 
                                     frequency = float( self.parameters['frequency']), 

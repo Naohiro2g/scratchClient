@@ -15,29 +15,25 @@
     # MA 02110, USA
     # ---------------------------------------------------------------------------------------------
 
+import json
+import time
+import sys
+
+import tornado.websocket
+
+import adapter.adapters
+import environment
+import helper
 
 import logging
 logger = logging.getLogger(__name__)
 
-import time
-import sys
-
-import adapter.adapters
-import environment
-
-       
-
-
 debug = False
-import json
 
-from ws4py.websocket import WebSocket
 
 websocketQueue = helper.abstractQueue.AbstractQueue()
     
-class PendelWebSocket(WebSocket):
-    def __init__(self, sock, protocols=None, extensions=None, environ=None, heartbeat_freq=None):
-        WebSocket.__init__(self, sock, protocols, extensions, environ, heartbeat_freq)
+class PendelWebSocket(tornado.websocket.WebSocketHandler):
     
     cnt = 1    
         
@@ -79,7 +75,7 @@ class WebsocketXY_Adapter(adapter.adapters.Adapter):
         # read configuration from xml
         #
         loggingContext = "adapter '[{a:s}]'".format(a=self.name ) 
-        if not environment.has_key('gui') :
+        if not ( 'gui' in environment):
             logger.error("No gui enabled . Do not configure gui")
             return
         
@@ -114,22 +110,14 @@ class WebsocketXY_Adapter(adapter.adapters.Adapter):
         lastY = None
         cnt = 0
         while not(self.stopped()):
-            self.delay(0.05)
+
             value = None
-            
             try:  
-                if websocketQueue.empty():
-                    v = websocketQueue.get(False)
-                    if v != None:
-                        value = v    
-                else:      
-                    while not websocketQueue.empty(): 
-                        v = websocketQueue.get(False)
-                        if v != None:
-                            value = v    
-                
-            except Queue.Empty:
-                pass
+                v = websocketQueue.get( True, 0.1)
+                if v != None:
+                    value = v    
+            except helper.abstractQueue.AbstractQueue.Empty:
+                continue
                 
             if value == None:
                 continue

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+% if debug:
+<!-- htdocs/template/scratchx/documentation/scratchClient.html start -->
+% endif
+
+    <%include file="/template/header.html" />
+    
+    <body>
+        <h2>ScratchClient bridge to scratch2, scratchX</h2>
+        <p>
+        This documentation is applicable to connect the web version of scratch2 named scratchX from http://scratchx.org/#scratch with scratchClient.
+        </p>
+        <p>
+        Connecting scratch2 to hardware needs the following steps
+        </p>
+        <p>
+        Start scratchClient with the configuration xml file for your hardware.
+        </p>
+        <p>
+        Load http://scratchx.org/#scratch into the browser.
+        </p>
+        <p>
+        In 'more blocks', 'Load Experimental Extension',
+        </p>
+        
+        <img src="/images/scratchx/documentation/step_10.png"/>
+        <p>
+        press on Load Experimental Extensions and open Extension URL<br/>
+               
+ 
+        </p><img src="/images/scratchx/documentation/step_20.png"/>
+        <p>
+        Paste the following url into the form  https://megjlow.github.io/extensionloader.js
+        </p>
+        <p>
+        This url brings the Load Extension Block into the additional block palette.
+        </p>
+        
+        <img src="/images/scratchx/documentation/step_30.png"/>
+        
+        <p>
+        The Load Extension Block is now used to load the scratchClient configuration. Best practice is to prepare a small script in stage which loads the scratchClient config.
+         </p>
+         <img src="/images/scratchx/documentation/step_40.png"/>
+         <p>The program shall use 'blueFlag' in all places where the green flag hat <img src="/images/scratchx/documentation/step_50.png"/> is usually used.
+         
+         </p>
+         <p>The url to use to load the scratchClient extension is http://localhost:8080/scratchx/js/extension.js<br/>
+         If scratchClient is running on a different computer, change 'localhost' to either the other computer's IP-address which is something like 192.168.2.203 or perhaps a more meaningful name when the network configuration allows this.
+         </p>
+         <p>Validation. See the 'green' dots to the right of the extension name. If these turn red, connection is list and scratchClient is not started.
+         </p>
+         <img src="/images/scratchx/documentation/step_validation.png"/>
+         
+      <h2>Loading a project using scratchClient extension</h2>
+        <p>
+             A program loaded from file system shows the Load Extension Block, but not the scratchClient extension. The blocks from the scratchClient extension are displayed as red blocks.
+        </p>
+        <img src="/images/scratchx/documentation/step_reload.png"/>  
+        <p>
+            When program is started with green flag and the proposed initial script is executed, the Load Extension Block
+            reads the extension from scratchClient and the program can be used.
+        </p>
+         
+    <%include file="/template/footer.html" />
+    
+    </body>
+</html>
+
+% if debug:
+<!-- htdocs/template/scratchx/documentation/scratchClient.html end -->
+% endif

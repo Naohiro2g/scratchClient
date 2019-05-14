@@ -22,8 +22,8 @@
 
 	<description>
 		Arbeitskreis Physical Computing am IKG.
-		Ansteuerung aller Ausgänge.
-		Die Kommandos sind als 'ledN' für scratch bezeichnet.
+		Ansteuerung aller Ausg辰nge.
+		Die Kommandos sind als 'ledN' f端r scratch bezeichnet.
 		Jumper: 
 			gesetzt:
 			    out.0 bis out.7 alle gesetzt.

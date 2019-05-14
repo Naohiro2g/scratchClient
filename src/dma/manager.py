@@ -28,7 +28,7 @@ import RPIO2.PWM
 import logging
 logger = logging.getLogger(__name__)
 
-debug=True
+debug=False
 
          
 class _DMARegistry:
@@ -38,7 +38,7 @@ class _DMARegistry:
         self.channels = {}
     
     def isChannelInitialized( self, channel):
-        if self.channels.has_key( channel):
+        if channel in self.channels:
             return True
         return False
          
@@ -65,6 +65,7 @@ class DMAManager:
                 RPIO2.PWM.set_loglevel( RPIO2.PWM.LOG_LEVEL_ERRORS )
             RPIO2.PWM.setup()
         else:
+            # TODO if active has not been initialized, this next call raises problems
             RPIO2.PWM.clear_channel(self.CHANNEL) 
      
     def startPWM(self, gpio, frequency, value ):
@@ -85,9 +86,9 @@ class DMAManager:
     def set_pwm(self, gpio, value):
         """value is a float in range 0..1"""
         nd = self.dmaRegistry.getChannelPeriod(self.CHANNEL)
-        nd = nd / 10
+        nd = nd / 10.0
         ndx = int( nd * value )
-        #print("set_pwm", value, nd, ndx)
+        # print("set_pwm", "value", value, "nd", nd, "ndx", ndx)
         if ndx < 0:
             ndx = 0
         if ndx > nd:

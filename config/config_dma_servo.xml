@@ -1,0 +1,51 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<config version='1.0'
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:noNamespaceSchemaLocation="config.xsd" >
+	<!--
+	# ===========================================================================
+	# Copyright (C) 2017  Gerhard Hepp
+	#
+	# This program is free software; you can redistribute it and/or modify it under the terms of
+	# the GNU General Public License as published by the Free Software Foundation; either version 2
+	# of the License, or (at your option) any later version.
+	#
+	# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+	# without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+	# See the GNU General Public License for more details.
+	#
+	# You should have received a copy of the GNU General Public License along with this program; if
+	# not, write to the Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
+	# MA 02110, USA
+	# ===========================================================================
+	-->
+	<description>
+	</description>
+
+	<!-- =========================================================================== -->
+    <adapter class='adapter.dma_pwm.DMA_PWMServo'  name='servo_pwm'>
+        <description>Sample DMA PWM, needs installation of RPIO2-package.</description>
+
+        <gpio port='GPIO23'>
+            <default dir='OUT'  default='high' />
+            <active dir='RESERVED' />
+        </gpio>
+
+        <input_value name='rate'>
+            <variable name='servo_A'/>
+        </input_value>
+
+        <parameter name='frequency' value='50' />
+        <parameter name='rate' value='50' />
+ 
+        <!--  optional parameter -->
+        <parameter name='value.inverse' value='true' />
+        
+        
+        <!--  millisecond min is 0.5 [ms] minimum, default = 1 [ms] -->
+        <!--  millisecond max is 1.5 [ms] minimum, default = 2 [ms] -->
+        <parameter name="millisecond.min" value="1.0" />
+        <parameter name="millisecond.max" value="2.0" />
+    </adapter>
+
+</config>

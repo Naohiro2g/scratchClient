@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+    % if debug:
+    <!-- htdocs/template/main.html start -->
+    % endif
+<html>
+    
+    <%include file="../template/header.html" />
+
+    <body>
+		<h2>ScratchClient</h2>
+		<p>
+		<a href ='/config'>Konfigurationsdatei</a>                          <br/>
+		<a href ='/adapters'>Adapter</a>                                    <br/>
+		                                                                    <br/>
+        <a href ='/release'>scratchClient release information</a>           <br/>
+                                                                            <br/>
+        <a href ='/usage14'>Scratch 1.4 configuration for the Adapter</a>   <br/>
+        <a href ='/scratchx/documentation/scratchClient.html'>Scratch 2, scratch X Usage Documentation</a>   <br/>
+        <a href ='/scratch2/documentation/scratchClient.html'>Scratch 2, raspberry Usage Documentation</a>   <br/>
+		</p>
+		
+		<p>
+		 % if len(additionalpaths) > 0:
+		 
+		     <!-- injected links, controlled by an adapter -->
+		     <p>
+		         Pages related to adapters: 
+		     </p>
+		     <p>               
+		     ##       { 'name':  name, 'htmlpath' : htmlpath, 'comment' : comment } 
+        	 % for row in additionalpaths:
+        	  <a href ='/html/${ row['htmlpath'] }'>${ row['name'] }</a>  ${ row['comment'] } </br>
+             % endfor
+             </p>
+             
+         % endif
+        </p>
+        
+    <%include file="../template/footer.html" />
+    
+    </body>
+</html>
+% if debug:
+<!-- htdocs/template/main.html end -->
+% endif

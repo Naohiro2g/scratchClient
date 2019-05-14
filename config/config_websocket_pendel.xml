@@ -42,14 +42,15 @@ xsi:noNamespaceSchemaLocation="config.xsd" >
             <broadcast name='click_event'/>
         </output>
         
-        <webserver>
-            <!-- implement a web socket link 'route'  -->
-            <route name='pendel' route='/adapter/pendel' />
-            
-            <!--  implement a link on start page of web server -->
-            <html name='pendel' path='websocket/pendel.html' comment='positional sensor from a smartphone' />
-        </webserver>
-        
+        <extension>
+            <webserver>
+		            <!-- implement a web socket link 'route'  -->
+		            <route name='pendel' route='/adapter/pendel' />
+		            
+		            <!--  implement a link on start page of web server -->
+		            <html name='pendel' path='websocket/pendel.html' comment='positional sensor from a smartphone' />
+            </webserver>
+        </extension>
     </adapter>
 
 </config>

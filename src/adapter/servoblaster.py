@@ -226,8 +226,15 @@ class ServoBlaster(adapter.adapters.Adapter):
             # silently ignore wrong values
             return
         # calculate microsecond values
-        p = self.milliseconds_min[index] + value * ( self.milliseconds_max[index]- self.milliseconds_min[index]) / 100.0
-        t = int (p * 1000 )
+        
+        if debug:
+            print(self.milliseconds_min[index])
+            print(self.milliseconds_max[index])
+            
+        p = self.milliseconds_min[index] + p * ( self.milliseconds_max[index]- self.milliseconds_min[index]) / 100.0
+        t = int (p * 1000.0 )
+        if debug:
+            print("currentpos[", index, "]", t)
         self.currentPos[index] = t
            
     def servo_1(self, value):

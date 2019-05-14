@@ -1405,10 +1405,10 @@ class PiezoTonePlayer( LegoAdapterService):
     
     def playFrequency(self,  frequency, duration):
         if frequency > self.PIEZO_TONE_MAX_FREQUENCY:
-            print( "Cannot play frequenzy %d, max supported frequency is %d", frequency, self.PIEZO_TONE_MAX_FREQUENCY)
+            print( "Cannot play frequency %d, max supported frequency is %d", frequency, self.PIEZO_TONE_MAX_FREQUENCY)
             frequency = self. PIEZO_TONE_MAX_FREQUENCY
         if frequency < 30:
-            print( "Cannot play frequenzy %d, max supported frequency is %d", frequency, self.PIEZO_TONE_MIN_FREQUENCY)
+            print( "Cannot play frequency %d, max supported frequency is %d", frequency, self.PIEZO_TONE_MIN_FREQUENCY)
             frequency = self.PIEZO_TONE_MIN_FREQUENCY
        
         if duration > self.PIEZO_TONE_MAX_DURATION:
@@ -1520,10 +1520,13 @@ class Wedo2Adapter(adapter.adapters.Adapter):
         # General Adapter
         adapter.adapters.Adapter.__init__(self)
         self.motor_init()
-   
-    def run(self):
-        
+        self.strict = True
+    
+    def setActive (self, active):
         self.strict  = self.isTrue( self.parameters['mode.strict'] )
+        adapter.adapters.Adapter. setActive( self, active)
+        
+    def run(self):
         
         btle_name = self.parameters['btle.name']
         btle_address = self.parameters['btle.address']
@@ -1546,7 +1549,10 @@ class Wedo2Adapter(adapter.adapters.Adapter):
                     for device in devices:
                         # 9 : 'Complete Local Name'
                         with helper.logging.LoggingContext(logger, level=logging.DEBUG):
-                            logger.info("{name:s}: found device {addr:s}, {dname:s}".format(name=self.name, addr=device.addr, dname=device.getValueText( 9 )))
+                            device_valueText_9 = device.getValueText( 9 )
+                            if device_valueText_9 == None:
+                                device_valueText_9 = 'None'
+                            logger.info("{name:s}: found device {addr:s}, {dname:s}".format(name=self.name, addr=device.addr, dname=device_valueText_9))
                         
                         if  btle_name == device.getValueText( 9 ):
                             address = device.addr
@@ -1680,7 +1686,7 @@ class Wedo2Adapter(adapter.adapters.Adapter):
                     elif cmd[ 'name'] == 'tilt1_tilt':
                         values = cmd['values']
                         if self.strict:
-                            self.tilt1_tilt1(values[0])
+                            self.tilt1_tilt(values[0])
                         else:
                             self.tilt_tilt(values[0])
                             
@@ -1775,6 +1781,9 @@ class Wedo2Adapter(adapter.adapters.Adapter):
         self._motor = 0
         self._motor1 = 0
         self._motor2 = 0
+        self._motor_direction = 0
+        self._motor1_direction = 0
+        self._motor2_direction = 0
            
     def motor(self, value):
         """ values are [-100, +100] """
@@ -1786,10 +1795,10 @@ class Wedo2Adapter(adapter.adapters.Adapter):
             if -100 <=value <= 100:
                 self._motor = value
                 if value >= 0:
-                    direction = Motor.MOTOR_DIRECTION_RIGHT 
+                    self._motor_direction = Motor.MOTOR_DIRECTION_RIGHT 
                 if value < 0:
-                    direction = Motor.MOTOR_DIRECTION_LEFT 
-                serviceBroker.motor_run(direction, abs(value)) 
+                    self._motor_direction = Motor.MOTOR_DIRECTION_LEFT 
+                serviceBroker.motor_run(self._motor_direction, abs(value)) 
         except:
             pass
         
@@ -1803,10 +1812,10 @@ class Wedo2Adapter(adapter.adapters.Adapter):
             if -100 <=value <= 100:
                 self._motor1 = value
                 if value >= 0:
-                    direction = Motor.MOTOR_DIRECTION_RIGHT 
+                    self._motor1_direction = Motor.MOTOR_DIRECTION_RIGHT 
                 if value < 0:
-                    direction = Motor.MOTOR_DIRECTION_LEFT 
-                serviceBroker.motor1_run(direction, abs(value)) 
+                    self._motor1_direction = Motor.MOTOR_DIRECTION_LEFT 
+                serviceBroker.motor1_run(self._motor1_direction, abs(value)) 
         except:
             pass
         
@@ -1819,47 +1828,71 @@ class Wedo2Adapter(adapter.adapters.Adapter):
             if -100 <=value <= 100:
                 self._motor2 = value
                 if value >= 0:
-                    direction = Motor.MOTOR_DIRECTION_RIGHT 
+                    self._motor2_direction = Motor.MOTOR_DIRECTION_RIGHT 
                 if value < 0:
-                    direction = Motor.MOTOR_DIRECTION_LEFT 
-                serviceBroker.motor2_run(direction, abs(value)) 
+                    self._motor2_direction = Motor.MOTOR_DIRECTION_LEFT 
+                serviceBroker.motor2_run(self._motor2_direction, abs(value)) 
         except:
             pass
  
     def motor_run(self):
+        """ convenience function to run a motor with a single event.
+            Speed which was earlier set"""
         logger.info("motor_run")
-        serviceBroker.motor(self._motor)
+        if self.strict:
+            return
+        serviceBroker.motor_run(self._motor_direction, self._motor)
         
     def motor1_run(self):
+        """ convenience function to run a motor with a single event.
+            Speed which was earlier set"""
         logger.info("motor1_run")
-        serviceBroker.motor1(self._motor1)
+        if not self.strict:
+            return
+        serviceBroker.motor1_run(self._motor1_direction, self._motor1)
          
     def motor2_run(self):
+        """ convenience function to run a motor with a single event.
+            Speed which was earlier set"""
         logger.info("motor2_run")
-        serviceBroker.motor2(self._motor2)
+        if not self.strict:
+            return
+        serviceBroker.motor2_run(self._motor2_direction, self._motor2)
         
     def motor_brake(self):
         logger.info("motor_brake")
+        if self.strict:
+            return
         serviceBroker.motor_brake()
         
     def motor1_brake(self):
         logger.info("motor1_brake")
+        if not self.strict:
+            return
         serviceBroker.motor1_brake()
         
     def motor2_brake(self):
         logger.info("motor2_brake")
+        if not self.strict:
+            return
         serviceBroker.motor2_brake()
  
     def motor_drift(self):
         logger.info("motor_drift")
+        if self.strict:
+            return
         serviceBroker.motor_drift()
         
     def motor1_drift(self):
         logger.info("motor1_drift")
+        if not self.strict:
+            return
         serviceBroker.motor1_drift()
         
     def motor2_drift(self):
         logger.info("motor2_drift")
+        if not self.strict:
+            return
         serviceBroker.motor2_drift()
     
     def voltage(self, value):

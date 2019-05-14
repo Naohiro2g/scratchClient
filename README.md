@@ -8,13 +8,15 @@ See http://heppg.de/ikg/wordpress/?page_id=6 for more information and download.
 Quick install guide: Open a terminal and execute the following lines.
 ```  
 cd ~
-wget http://heppg.de/ikg/administration/pi/scratchClient/download/scratchClient.tar.gz
+wget -O scratchClient.tar.gz http://heppg.de/download/scratchClient/scratchClient.tar.gz
 tar xzf scratchClient.tar.gz
 chmod +r -R scratchClient/
+
 sudo apt-get update
-sudo apt-get install python-pip python3-pip python-dev python3-dev
-sudo pip install cherrypy==8.1.0 ws4py==0.3.5 mako==1.0.6 routes==2.4.1 spidev pyserial intelhex
-sudo pip3 install cherrypy==8.1.0 ws4py==0.3.5 mako==1.0.6 routes==2.4.1 spidev pyserial intelhex
+sudo apt-get install python-pip  python-dev  python-smbus 
+sudo apt-get install python3-pip python3-dev python3-smbus 
+sudo pip  install tornado mako==1.0.6 spidev pyserial intelhex
+sudo pip3 install tornado mako==1.0.6 spidev pyserial intelhex
 ```
 
 Specialized adapters may need more packages to install. See the docs for more information.

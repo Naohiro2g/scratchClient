@@ -25,7 +25,7 @@
 	</description>
 
 	<!-- =========================================================================== -->
-	<adapter class='adapter.pigpiod.HC_SR04_Adapter'  name='echo-time'>
+	<adapter class='adapter.pigpiodAdapter.HC_SR04_Adapter'  name='echo-time'>
 		<description>HC-SR04 controller</description>
 
         <!--  gpio are not used directly. Set 'dir' to 'RESERVED'. -->

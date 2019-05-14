@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-class LoggingContext(object):
+class LoggingContext:
     """allows to temporarily reset logging level to output specific messages
-       See 'Using a context manager for selective logging' in pythgon logging cookbook."""
+       See 'Using a context manager for selective logging' in python logging cookbook."""
        
     def __init__(self, logger, level=None, handler=None, close=True):
         self.logger = logger

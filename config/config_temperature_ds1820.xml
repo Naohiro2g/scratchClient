@@ -38,7 +38,7 @@ xsi:noNamespaceSchemaLocation="config.xsd" >
                 
              base dir /sys/bus/w1/devices 
         -->
-        <parameter name='w1.device' value='10-0008023b57b9' />
+        <parameter name='w1.device' value='28-000008d38d5e' />
     </adapter>
 
 </config>

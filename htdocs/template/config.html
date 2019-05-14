@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+% if debug:
+<!-- htdocs/template/config.html start -->
+% endif
+
+<html>
+    
+    <%include file="../template/header.html" />
+
+    <body>
+	
+	   <h1>ScratchClient, Konfiguration</h1>
+	
+        	<p>Konfigurationsdatei: ${configName}</p>
+	
+	       <p><pre>${config}</pre></p>
+	
+        <%include file="../template/footer.html" />
+    </body>
+</html>
+
+% if debug:
+<!-- htdocs/template/config.html end -->
+% endif
+

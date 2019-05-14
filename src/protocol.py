@@ -51,9 +51,12 @@ class SParser:
         
             self.tchar.char = self._input[self.pos]
             # t = NVToken(NVToken.CHAR, self._input[self.pos])
+            self.tchar.pos = self.pos
             self.pos += 1
             #return t
             return self.tchar
+        
+        self.teol.pos = self.pos
         return self.teol
     
            
@@ -88,7 +91,7 @@ class NameValueParser (SParser) :
                     elif c.char == '"':
                         state = 1
                     else:
-                        logger.error("%d: failure in parsing input, unexpected char %s at %d (%s)", state, c.char, self.pos, self._input )
+                        logger.error("%d: failure in parsing input, unexpected char %s at %d (%s)", state, c.char, c.pos, self._input )
                         break;
                 elif c.type == NVToken.EOL:
                     logger.error("%d: failure in parsing input, unexpected EOL (%s)", state, self._input)
@@ -103,7 +106,7 @@ class NameValueParser (SParser) :
                     elif c.char == '"':
                         state = 1
                     else:
-                        logger.error("%d: failure in parsing input, unexpected char %s at %d (%s)", state, c.char, self.pos, self._input )
+                        logger.error("%d: failure in parsing input, unexpected char %s at %d (%s)", state, c.char, c.pos, self._input )
                         break;
                 elif c.type == NVToken.EOL:
                     break;  
@@ -117,7 +120,7 @@ class NameValueParser (SParser) :
                     else:
                         name += c.char  
                 elif c.type == NVToken.EOL:
-                    logger.error("%d: failure in parsing input, unexpected EOL (%s)", state, self._input)
+                    logger.error("%d: failure in parsing input, unexpected EOL at %d (%s)", state, c.pos, self._input)
                     break;  
             elif state == 20:
                 #
@@ -130,7 +133,7 @@ class NameValueParser (SParser) :
                     elif c.char == ' ' :
                         state = 2  
                 elif c.type == NVToken.EOL:
-                    logger.error("%d: failure in parsing input, unexpected EOL (%s)", state, self._input)
+                    logger.error("%d: failure in parsing input, unexpected EOL at%d (%s)", state, c.pos, self._input)
                     break;  
             elif state == 2:
                 #
@@ -146,7 +149,7 @@ class NameValueParser (SParser) :
                         state = 200
                          
                 elif c.type == NVToken.EOL:
-                    logger.error("%d: failure in parsing input, unexpected EOL (%s)", state, self._input)
+                    logger.error("%d: failure in parsing input, unexpected EOL at %d (%s)", state, c.pos, self._input)
                     break;  
             elif state == 100:
                 #
@@ -161,7 +164,7 @@ class NameValueParser (SParser) :
                         value += c.char
                          
                 elif c.type == NVToken.EOL:
-                    logger.error("%d: failure in parsing input, unexpected EOL (%s)", state, self._input)
+                    logger.error("%d: failure in parsing input, unexpected EOL at %d (%s)", state, c.pos, self._input)
                     break;  
             elif state == 110:
                 #
@@ -182,7 +185,7 @@ class NameValueParser (SParser) :
                         value += '"'
                         state = 100
                     else:
-                        logger.error("%d: failure in parsing input, unexpected char %c at %d (%s)", state, c.char, self.pos, self._input)
+                        logger.error("%d: failure in parsing input, unexpected char %c at %d (%s)", state, c.char, c.pos, self._input)
                         break 
                 elif c.type == NVToken.EOL:
                     
@@ -210,7 +213,7 @@ class NameValueParser (SParser) :
                          
                 elif c.type == NVToken.EOL:
                     result.append([name, value])
-                    logger.warning("%d: unexpected EOL, but sequence is complete", state)
+                    logger.debug("%d: unexpected EOL, but sequence is complete %c at %d (%s)", state, c.char, c.pos, self._input)
                     break;  
         return result
 
@@ -230,9 +233,8 @@ class BroadcastParser (SParser):
         name = ''
         
         while True:
-
             c = self.getToken()
-            # logger.debug("state = " + str(state) + " " + str(c) + " @" + str(self.pos))
+            # logger.info("state = " + str(state) + " " + str(c) + " @" + str(c.pos))
             if state == 0:
                 #
                 # expect quote or blank
@@ -243,10 +245,10 @@ class BroadcastParser (SParser):
                     elif c.char == '"':
                         state = 1
                     else:
-                        logger.error("%d: failure in parsing input, unexpected char %s at %d (%s)", state, c.char, self.pos, self._input )
+                        logger.error("%d: failure in parsing input, unexpected char %s at %d (%s)", state, c.char, c.pos, self._input )
                         break;
                 elif c.type == NVToken.EOL:
-                    logger.error("%d: failure in parsing input, unexpected EOL (%s)", state, self._input)
+                    logger.error("%d: failure in parsing input, unexpected EOL at %d (%s)", state, c.pos, self._input)
                     break;  
             elif state == 1:
                 #
@@ -258,7 +260,7 @@ class BroadcastParser (SParser):
                     else:
                         name += c.char  
                 elif c.type == NVToken.EOL:
-                    logger.error("%d: failure in parsing input, unexpected EOL (%s)", state, self._input)
+                    logger.error("%d: failure in parsing input, unexpected EOL at %d (%s)", state, c.pos, self._input)
                     break;  
             elif state == 20:
                 #
@@ -271,7 +273,7 @@ class BroadcastParser (SParser):
                     elif c.char == ' ' :
                         break  
                 elif c.type == NVToken.EOL:
-                    logger.error("%d: failure in parsing input, unexpected EOL (%s)", state, self._input)
+                    # logger.error("%d: failure in parsing input, unexpected EOL at %d (%s)", state, c.pos, self._input)
                     break  
                 
         return name

@@ -1,0 +1,66 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<config version='1.0'
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xsi:noNamespaceSchemaLocation="config.xsd" >
+    <!--
+    # ===========================================================================
+    # Copyright (C) 2018  Gerhard Hepp
+    #
+    # This program is free software; you can redistribute it and/or modify it under the terms of
+    # the GNU General Public License as published by the Free Software Foundation; either version 2
+    # of the License, or (at your option) any later version.
+    #
+    # This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+    # without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    # See the GNU General Public License for more details.
+    #
+    # You should have received a copy of the GNU General Public License along with this program; if
+    # not, write to the Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
+    # MA 02110, USA
+    # ===========================================================================
+    -->
+    <description>Touch values from a MPR121.
+        Output values are 0, 1.
+        Events are provided on change from 0 to 1.</description>
+
+    <!-- =========================================================================== -->
+    <adapter class='adapter.i2cAdapter.Touch_MPR121'  name='touch'>
+        <description>Touch values from a MPR121</description>
+
+        <output_value name='touch_00'>  <sensor name='mpr121_00'/>  </output_value>
+        <output_value name='touch_01'>  <sensor name='mpr121_01'/>  </output_value>
+        <output_value name='touch_02'>  <sensor name='mpr121_02'/>  </output_value>
+        <output_value name='touch_03'>  <sensor name='mpr121_03'/>  </output_value>
+        <output_value name='touch_04'>  <sensor name='mpr121_04'/>  </output_value>
+        <output_value name='touch_05'>  <sensor name='mpr121_05'/>  </output_value>
+        <output_value name='touch_06'>  <sensor name='mpr121_06'/>  </output_value>
+        <output_value name='touch_07'>  <sensor name='mpr121_07'/>  </output_value>
+        <output_value name='touch_08'>  <sensor name='mpr121_08'/>  </output_value>
+        <output_value name='touch_09'>  <sensor name='mpr121_09'/>  </output_value>
+        <output_value name='touch_10'>  <sensor name='mpr121_10'/>  </output_value>
+        <output_value name='touch_11'>  <sensor name='mpr121_11'/>  </output_value>
+        
+        <output name='event_00'>  <broadcast name='mpr121_evt_00'/>  </output>
+        <output name='event_01'>  <broadcast name='mpr121_evt_01'/>  </output>
+        <output name='event_02'>  <broadcast name='mpr121_evt_02'/>  </output>
+        <output name='event_03'>  <broadcast name='mpr121_evt_03'/>  </output>
+        <output name='event_04'>  <broadcast name='mpr121_evt_04'/>  </output>
+        <output name='event_05'>  <broadcast name='mpr121_evt_05'/>  </output>
+        <output name='event_06'>  <broadcast name='mpr121_evt_06'/>  </output>
+        <output name='event_07'>  <broadcast name='mpr121_evt_07'/>  </output>
+        <output name='event_08'>  <broadcast name='mpr121_evt_08'/>  </output>
+        <output name='event_09'>  <broadcast name='mpr121_evt_09'/>  </output>
+        <output name='event_10'>  <broadcast name='mpr121_evt_10'/>  </output>
+        <output name='event_11'>  <broadcast name='mpr121_evt_11'/>  </output>
+        
+        <parameter name='poll.interval' value='0.1' />
+       
+        <!-- bus is '1' for RPi Release 2 -->
+        <parameter name='i2c.bus' value='1' />
+        
+        <!-- address is '0x5a' for adafruit MPR121 -->
+        <parameter name='i2c.address' value='0x5a' />
+        
+    </adapter>
+
+</config>

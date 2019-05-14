@@ -1,0 +1,317 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<config version='1.0' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="config.xsd">
+    <!-- 
+    # =============================================================================================
+    # Copyright (C) 2017  Gerhard Hepp
+    #
+    # This program is free software; you can redistribute it and/or modify it under the terms of
+    # the GNU General Public License as published by the Free Software Foundation; either version 2
+    # of the License, or (at your option) any later version.
+    #
+    # This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+    # without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    # See the GNU General Public License for more details.
+    #
+    # You should have received a copy of the GNU General Public License along with this program; if
+    # not, write to the Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
+    # MA 02110, USA
+    # =============================================================================================
+        -->
+
+	<description>
+		Pi2GO-Adapter
+    </description>
+
+    <adapter class='adapter.i2cAdapter.ADC_DAC_PCF8591' name='4-channel Light sensor'>
+        <description>4 channel light sensor.</description>
+
+        <output_value name="adc_0">
+             <sensor name="light_D5"/>
+        </output_value>
+        <output_value name="adc_1">
+             <sensor name="light_D6"/>
+        </output_value>
+        <output_value name="adc_2">
+             <sensor name="light_D8"/>
+        </output_value>
+        <output_value name="adc_3">
+             <sensor name="light_D9"/>
+        </output_value>
+
+        <!-- bus is '1' for RPi Release 2 -->
+        <parameter name='i2c.bus' value='1' />
+        
+        <!-- Depending on address select, the bus address is 
+             '0x40' for all address lines low. 
+             -->
+        <parameter name='i2c.address' value='0x48' />
+        <parameter name='i2c.address' value='0x48' />
+        <parameter name='dac.enable' value='false' />
+        <parameter name='poll.interval' value='0.1' />
+        
+        <parameter name='average.enable' value='true' />
+        <parameter name='average.cnt' value='5' />
+    </adapter>
+   
+    <!-- =========================================================================== -->
+	<adapter class='adapter.i2cAdapter.PWM_PCA9685' name='16-channel PWM'>
+		<description>DEMO for the PCA adapter.</description>
+
+
+		<!-- the scratch variable names are simply the method names here. Could be more useful... -->
+        <input_value name='channel_0'>
+            <variable name='D11_D14_blue' />
+        </input_value>
+        
+        <input_value name='channel_1'>
+            <variable name='D11_D14_green' />
+        </input_value>
+        
+        <input_value name='channel_2'>
+            <variable name='D11_D14_red' />
+        </input_value>
+        
+        
+        <input_value name='channel_3'>
+            <variable name='D12_D15_blue' />
+        </input_value>
+        
+        <input_value name='channel_4'>
+            <variable name='D12_D15_green' />
+        </input_value>
+        
+        <input_value name='channel_5'>
+            <variable name='D12_D15_red' />
+        </input_value>
+        
+        
+        <input_value name='channel_6'>
+            <variable name='D10_D07_blue' />
+        </input_value>
+        
+        <input_value name='channel_7'>
+            <variable name='D10_D07_green' />
+        </input_value>
+        
+        <input_value name='channel_8'>
+            <variable name='D10_D07_red' />
+        </input_value>
+        
+        <input_value name='channel_9'>
+            <variable name='D01_D04_blue' />
+        </input_value>
+        
+        <input_value name='channel_10'>
+            <variable name='D01_D04_green' />
+        </input_value>
+        
+        <input_value name='channel_11'>
+            <variable name='D01_D04_red' />
+        </input_value>
+
+        <input_value name='servo_12'>
+            <variable name='servo_S12' />
+        </input_value>
+        
+        <input_value name='servo_13'>
+            <variable name='servo_S13' />
+        </input_value>
+        
+        <input_value name='servo_14'>
+            <variable name='servo_S14' />
+        </input_value>
+        
+        <input_value name='servo_15'>
+            <variable name='servo_S15' />
+        </input_value>
+
+        <!-- frequency 50Hz is used for servo  -->
+        <!-- frequency in range 1526 Hz to 24 Hz  -->
+        
+		<parameter name='frequency' value='50' />
+        
+        <!-- bus is '1' for RPi Release 2 -->
+        <parameter name='i2c.bus' value='1' />
+        
+        <!-- Depending on address select, the bus address is 
+             '0x40' for all address lines low. 
+             -->
+        <parameter name='i2c.address' value='0x40' />
+        
+	</adapter>
+	
+    <!-- =========================================================================== -->
+    <adapter class='adapter.gpio.GpioMotorPWM'  name='motorA'>
+        <description>Sample Motor control</description>
+
+        <gpio port='GPIO08'   alias='b'>
+            <default dir='OUT' pull='PUD_OFF' default='low' />
+            <active dir='RESERVED' />
+        </gpio>
+        <gpio port='GPIO07' alias='a'>
+            <default dir='OUT' pull='PUD_OFF' default='low' />
+            <active dir='RESERVED' />
+        </gpio>
+
+        <input_value name='speed'>
+            <variable name='speed_A'/>
+        </input_value>
+
+        <parameter name='frequency' value='70' />
+        <!--  speed is initial speed -->
+        <parameter name='speed' value='0' />
+    </adapter>
+    
+    <adapter class='adapter.gpio.GpioMotorPWM'  name='motorB'>
+        <description>Sample Motor control</description>
+
+        <gpio port='GPIO09'   alias='b'>
+            <default dir='OUT' pull='PUD_OFF' default='low' />
+            <active dir='RESERVED' />
+        </gpio>
+        <gpio port='GPIO10' alias='a'>
+            <default dir='OUT' pull='PUD_OFF' default='low' />
+            <active dir='RESERVED' />
+        </gpio>
+
+        <input_value name='speed'>
+            <variable name='speed_B'/>
+        </input_value>
+
+        <parameter name='frequency' value='70' />
+        <!--  speed is initial speed -->
+        <parameter name='speed' value='0' />
+    </adapter>
+    <!-- =========================================================================== -->
+    <adapter class='adapter.gpio.GpioEventInput' name='SEN1'>
+        <!-- no description, urgg -->
+        <gpio port='GPIO04'>
+            <default dir='IN' pull='PUD_UP'  />
+            <active dir='IN' pull='PUD_UP'/>
+        </gpio>
+        
+        <output name='button_pressed'>
+            <broadcast name='SEN1_high'/>
+        </output>
+        <output name='button_released'>
+            <broadcast name='SEN1_low'/>
+        </output>
+        
+        <parameter name='poll.interval' value='0.1' />
+        <parameter name='value.inverse' value='true' />
+
+    </adapter>
+    <adapter class='adapter.gpio.GpioEventInput' name='SEN2'>
+        <!-- no description, urgg -->
+        <gpio port='GPIO17'>
+            <default dir='IN' pull='PUD_UP'  />
+            <active dir='IN' pull='PUD_UP'/>
+        </gpio>
+        
+        <output name='button_pressed'>
+            <broadcast name='SEN2_high'/>
+        </output>
+        <output name='button_released'>
+            <broadcast name='SEN2_low'/>
+        </output>
+        
+        <parameter name='poll.interval' value='0.1' />
+        <parameter name='value.inverse' value='true' />
+
+    </adapter>
+    
+    <adapter class='adapter.gpio.GpioEventInput' name='LINE_SEN1'>
+        <description>Line Follower Sensor 1</description>
+
+        <gpio port='GPIO18'>
+            <default dir='IN' pull='PUD_UP'  />
+            <active dir='IN' pull='PUD_UP'/>
+        </gpio>
+        
+        <output name='button_pressed'>
+            <broadcast name='LINE_SEN1_high'/>
+        </output>
+        <output name='button_released'>
+            <broadcast name='LINE_SEN1_low'/>
+        </output>
+        
+        <parameter name='poll.interval' value='0.1' />
+        <parameter name='value.inverse' value='true' />
+
+    </adapter>
+    <adapter class='adapter.gpio.GpioEventInput' name='LINE_SEN2'>
+        <description>Line Follower Sensor 2</description>
+        <gpio port='GPIO27'>
+            <default dir='IN' pull='PUD_UP'  />
+            <active dir='IN' pull='PUD_UP'/>
+        </gpio>
+        
+        <output name='button_pressed'>
+            <broadcast name='LINE_SEN2_high'/>
+        </output>
+        <output name='button_released'>
+            <broadcast name='LINE_SEN2_low'/>
+        </output>
+        
+        <parameter name='poll.interval' value='0.1' />
+        <parameter name='value.inverse' value='true' />
+
+    </adapter>
+    <adapter class='adapter.gpio.GpioEventInput' name='LINE_SEN3'>
+        <description>Line Follower Sensor 3</description>
+        <gpio port='GPIO22'>
+            <default dir='IN' pull='PUD_UP'  />
+            <active dir='IN' pull='PUD_UP'/>
+        </gpio>
+        
+        <output name='button_pressed'>
+            <broadcast name='LINE_SEN3_high'/>
+        </output>
+        <output name='button_released'>
+            <broadcast name='LINE_SEN3_low'/>
+        </output>
+        
+        <parameter name='poll.interval' value='0.1' />
+        <parameter name='value.inverse' value='true' />
+
+    </adapter>
+
+    <!-- =========================================================================== -->
+    <adapter class='adapter.gpio.GpioEventInput' name='Button'>
+        <description>Button on the side of board</description>
+        
+        <gpio port='GPIO23'>
+            <default dir='IN' pull='PUD_UP'  />
+            <active dir='IN' pull='PUD_UP'/>
+        </gpio>
+        
+        <output name='button_pressed'>
+            <broadcast name='SW1_high'/>
+        </output>
+        <output name='button_released'>
+            <broadcast name='SW1_low'/>
+        </output>
+        
+        <parameter name='poll.interval' value='0.1' />
+        <parameter name='value.inverse' value='true' />
+
+    </adapter>
+    <!-- =========================================================================== -->
+
+
+    <adapter class='adapter.gpio.Gpio_HCSR04_OnePin_Input' name='HCSR04'>
+        <description>Ultrasonic distance sensor</description>
+        
+        <gpio port='GPIO14'>
+            <default dir="RESERVED"  />
+            <active dir='RESERVED'   />
+        </gpio>
+        
+        <output_value name='distance'>
+            <sensor name='distance'/>
+        </output_value>
+
+       <parameter name='poll.interval' value='0.5' />
+    </adapter>
+
+</config>

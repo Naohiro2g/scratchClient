@@ -18,27 +18,30 @@
 import math
 import time
 import adapter
+import threading
 from i2c.manager import I2CManager
 
 import logging
 logger = logging.getLogger(__name__)
 
-debug = True
+debug = False
 
 # --------------------------------------------------------------------------------------
 class ADC_ADS1015_Input (adapter.adapters.I2CAdapter):
     """ADC Interface for ADS1015"""
     
-    int_adc_channel = 0
 
     mandatoryParameters = { 'poll.interval': '0.2', 
-                           'i2c.bus' : '0', 
+                           'i2c.bus' : '1', 
                            'i2c.address' :'0',
                            'adc.channel' : '0' }
+    
+    optionalParameters = { 'adc.pga': '4096', 
+                           'adc.sps' : '250' }
 
     def __init__(self):
         adapter.adapters.I2CAdapter.__init__(self )
-
+        self.lockPWMAccess = threading.Lock()
 
     def setActive (self, state):
         if debug:
@@ -47,15 +50,31 @@ class ADC_ADS1015_Input (adapter.adapters.I2CAdapter):
         # use default implementation to start up SPI
         #
         adapter.adapters.I2CAdapter.setActive(self, state);
-        self.int_adc_channel=   int(self.parameters['adc.channel'])
 
     def run(self):
         if debug:
             print(self.name, "run()")
         _del = float(self.parameters['poll.interval'])
+
+        self.int_adc_channel=   int(self.parameters['adc.channel'])
+         
+        self.adc_pga =   int( self.parameters.get('adc.pga', 0) )
+        
+        if self.adc_pga in ADC_ADS1015_Input.pgaADS1x15:
+            pass
+        else:
+            logger.warn("{n:s}: config parameter 'adc.pga'={v:d} not in allowed range".format(n=self.name, v=self.adc_pga))
+            self.adc_pga = 4096
+
+        self.adc_sps =   int( self.parameters.get('adc.sps', 0) )
+        if self.adc_sps in ADC_ADS1015_Input.spsADS1015:
+            pass
+        else:
+            logger.warn("{n:s}: config parameter 'adc.sps'={v:d} not in allowed range".format(n=self.name, v=self.adc_sps))
+            self.adc_sps = 250
             
-        last = self.i2cManager.getValue(
-                                self.int_i2c_bus, 
+        self.adc_sps =   int( self.parameters['adc.sps'] )
+        last = self._getValue(
                                 self.int_i2c_address, 
                                 self.int_adc_channel
                                 )
@@ -67,8 +86,7 @@ class ADC_ADS1015_Input (adapter.adapters.I2CAdapter):
             #
             self.delay(_del)
                            
-            current = self.i2cManager.getValue(
-                                self.int_i2c_bus, 
+            current = self._getValue(
                                 self.int_i2c_address, 
                                 self.int_adc_channel
                                 )
@@ -168,74 +186,76 @@ class ADC_ADS1015_Input (adapter.adapters.I2CAdapter):
                     256: __ADS1015_REG_CONFIG_PGA_0_256V
                   }    
         
-    def getValue(self, i2cdata, channel):
+    def _getValue(self, i2caddress, channel):
         #
         # multithreading, there could be simultaneous access to one devive.
         # therefore: lock the procedure.
         #
-        self.lockPWMAccess.acquire()
- 
-        #
-        # Samples per Second
-        #
-        sps=250
-        #
-        # Programmablae Gain adjust
-        #
-        pga = 4096
-        #
-        # Disable comparator, Non-latching, Alert/Rdy active low
-        # traditional comparator, single-shot mode
-        config = self.__ADS1015_REG_CONFIG_CQUE_NONE    | \
-                 self.__ADS1015_REG_CONFIG_CLAT_NONLAT  | \
-                 self.__ADS1015_REG_CONFIG_CPOL_ACTVLOW | \
-                 self.__ADS1015_REG_CONFIG_CMODE_TRAD   | \
-                 self.__ADS1015_REG_CONFIG_MODE_SINGLE    
-
-        # Set sample per seconds, defaults to 250sps
-        # If sps is in the dictionary (defined in init) it returns the value of the constant
-        # othewise it returns the value for 250sps. This saves a lot of if/elif/else code!
-        config |= self.spsADS1015.setdefault(sps, self.__ADS1015_REG_CONFIG_DR_1600SPS)
+        try:
+            self.i2cManager.getLock( self.int_i2c_bus, self.int_i2c_address ).acquire()
+            #
+            # Samples per Second
+            #
+            sps=490
+            #
+            # Programmablae Gain adjust
+            #
+            pga = 4096
+            #
+            # Disable comparator, Non-latching, Alert/Rdy active low
+            # traditional comparator, single-shot mode
+            config = self.__ADS1015_REG_CONFIG_CQUE_NONE    | \
+                     self.__ADS1015_REG_CONFIG_CLAT_NONLAT  | \
+                     self.__ADS1015_REG_CONFIG_CPOL_ACTVLOW | \
+                     self.__ADS1015_REG_CONFIG_CMODE_TRAD   | \
+                     self.__ADS1015_REG_CONFIG_MODE_SINGLE    
     
-        # Set PGA/voltage range, defaults to +-6.144V
-        if ( (pga not in self.pgaADS1x15) ):      
-            logger.error( "ADS1x15: Invalid pga specified: {pga:d}, using 6144mV".format(pga=pga))
-                 
-        config |= self.pgaADS1x15.setdefault(pga, self.__ADS1015_REG_CONFIG_PGA_4_096V)
-        self.pga = pga
-
-        # Set the channel to be converted
-        if channel == 3:
-            config |= self.__ADS1015_REG_CONFIG_MUX_SINGLE_3
-        elif channel == 2:
-            config |= self.__ADS1015_REG_CONFIG_MUX_SINGLE_2
-        elif channel == 1:
-            config |= self.__ADS1015_REG_CONFIG_MUX_SINGLE_1
-        else:
-            config |= self.__ADS1015_REG_CONFIG_MUX_SINGLE_0
-
-        # Set 'start single-conversion' bit
-        config |= self.__ADS1015_REG_CONFIG_OS_SINGLE
-
-        # Write config register to the ADC
-        _bytes = [(config >> 8) & 0xFF, config & 0xFF]
+            # Set sample per seconds, defaults to 250sps
+            # If sps is in the dictionary (defined in init) it returns the value of the constant
+            # othewise it returns the value for 250sps. This saves a lot of if/elif/else code!
+            config |= self.spsADS1015.setdefault(sps, self.__ADS1015_REG_CONFIG_DR_1600SPS)
         
-        i2cdata.i2cbus.write_i2c_block_data(i2cdata.address, self.__ADS1015_REG_POINTER_CONFIG, _bytes)
-
-        # Wait for the ADC conversion to complete
-        # The minimum delay depends on the sps: delay >= 1/sps
-        # We add 0.1ms to be sure
-        delay = 1.0/sps+0.0001
-        time.sleep(delay)
-
-        # Read the conversion results
-
-        result = i2cdata.i2cbus.read_i2c_block_data(i2cdata.address, self.__ADS1015_REG_POINTER_CONVERT, 2)
-        self.lockPWMAccess.release()
+            # Set PGA/voltage range, defaults to +-6.144V
+            if ( (pga not in self.pgaADS1x15) ):      
+                logger.error( "ADS1x15: Invalid pga specified: {pga:d}, using 6144mV".format(pga=pga))
+                     
+            config |= self.pgaADS1x15.setdefault(pga, self.__ADS1015_REG_CONFIG_PGA_4_096V)
+            self.pga = pga
+    
+            # Set the channel to be converted
+            if channel == 3:
+                config |= self.__ADS1015_REG_CONFIG_MUX_SINGLE_3
+            elif channel == 2:
+                config |= self.__ADS1015_REG_CONFIG_MUX_SINGLE_2
+            elif channel == 1:
+                config |= self.__ADS1015_REG_CONFIG_MUX_SINGLE_1
+            else:
+                config |= self.__ADS1015_REG_CONFIG_MUX_SINGLE_0
+    
+            # Set 'start single-conversion' bit
+            config |= self.__ADS1015_REG_CONFIG_OS_SINGLE
+    
+            # Write config register to the ADC
+            _bytes = [(config >> 8) & 0xFF, config & 0xFF]
             
+            self.writeList( self.__ADS1015_REG_POINTER_CONFIG, _bytes)
+    
+            # Wait for the ADC conversion to complete
+            # The minimum delay depends on the sps: delay >= 1/sps
+            # We add 0.1ms to be sure
+            delay = 1.0/ float(sps) +0.0001
+            time.sleep(delay)
+    
+            # Read the conversion results
+    
+            result = self.readList( self.__ADS1015_REG_POINTER_CONVERT, 2)
+        finally:
+            self.i2cManager.getLock(self.int_i2c_bus, self.int_i2c_address ).release()
+        
+        if debug:
+            print("{n:s}: {r0:02x} {r1:02x} ".format( n=self.name, r0 = result[0], r1=result[1]))    
         # Shift right 4 bits for the 12-bit ADS1015 and convert to mV
-        return ( ((result[0] << 8) | (result[1] & 0xFF)) >> 4 )*pga/2048.0
-        pass
+        return ( (result[0] << 4) | (result[1]  >> 4 ) ) *pga/2048.0
 
 
 # --------------------------------------------------------------------------------------
@@ -618,11 +638,11 @@ class PWM_PCA9685 (adapter.adapters.I2CAdapter):
         prescaleval /= 4096.0       # 12-bit
         prescaleval /= float(frequency)
         prescaleval -= 1.0
-        if (debug):
+        prescale = math.floor(prescaleval + 0.5)
+        if debug:
             print( "Setting PWM frequency to %d Hz" % frequency )
             print ("Estimated pre-scale: %d" % prescaleval )
-            prescale = math.floor(prescaleval + 0.5)
-        if (debug):
+            
             print ("Final pre-scale: %d" % prescale)
 
         oldmode = self.readU8(self.__MODE1);
@@ -645,11 +665,11 @@ class PWM_PCA9685 (adapter.adapters.I2CAdapter):
 
     def _setPWM(self, channel, on, off):
         "Sets a single PWM channel"
-        self.write8(self.__LED0_ON_L+4*channel, on & 0xFF)
-        self.write8(self.__LED0_ON_H+4*channel, on >> 8)
+        self.write8(self.__LED0_ON_L + 4*channel, on & 0xFF)
+        self.write8(self.__LED0_ON_H + 4*channel, on >> 8)
         
-        self.write8(self.__LED0_OFF_L+4*channel, off & 0xFF)
-        self.write8(self.__LED0_OFF_H+4*channel, off >> 8)
+        self.write8(self.__LED0_OFF_L + 4*channel, off & 0xFF)
+        self.write8(self.__LED0_OFF_H + 4*channel, off >> 8)
         
     def _reset(self):
         self.write8(self.__MODE1, 0x00)
@@ -722,7 +742,7 @@ class PWM_PCA9685 (adapter.adapters.I2CAdapter):
     def _channel(self, channel, value):
         try:
             v = float(value)
-        except TypeError:
+        except ValueError:
             return
         if v < 0.0 :
             v = 0.0
@@ -967,4 +987,482 @@ class PWM_SN3218 (adapter.adapters.I2CAdapter):
         bv = 0xff / 100.0 * v 
         self._setPWM(channel, int(bv))
 
+# --------------------------------------------------------------------------------------
+class ADC_DAC_PCF8591 (adapter.adapters.I2CAdapter):
+    """4-channel ADC, 1 Channel DAC"""
+
+    mandatoryParameters = {  
+                           'i2c.bus' : '1', 
+                           'i2c.address' :'0x48',
+                           'dac.enable': 'false',
+                           'poll.interval': '0.1'
+                          }
+
+    optionalParameters = {
+                            'average.enable': 'false',
+                            'average.cnt': '4'
+                        }
+    
+    def __init__(self):
+        adapter.adapters.I2CAdapter.__init__(self)
+        self._dac = 0
+        
+    def setActive (self, state):
+        if debug:
+            print(self.name, "setActive", state)
+        #
+        # use default implementation to start up I2C
+        #
+        adapter.adapters.I2CAdapter.setActive(self, state)
+            
+    def run(self):
+        _del = float( self.parameters['poll.interval'] )
+        self._dac_enabled = self.isTrue( self.parameters['dac.enable'] )
+        
+        
+        average_enable = self.isTrue( self.parameters.get( 'average.enable', 'false' ) )
+        average_cnt = int ( self.parameters.get( 'average.cnt', '5' ) )
+        if average_cnt == 0:
+            average_cnt = 2
+                
+        if self._dac_enabled:
+            self._enableDAC()
+        else:
+            self._disableDAC()
+                    
+        last = [ None, None, None, None ]
+        average = [ 0, 0, 0, 0 ]
+        average_state = 0
+        
+        while not self.stopped():
+            self.delay(_del)
+                           
+            current = self._readAllADC()
+            
+            if average_enable:
+                for i in range(4):
+                    average[i] = average[i] + current[i]
+                average_state  += 1
+                
+                if average_state >= average_cnt:
+                    for i in range(4):
+                        average[i] = average[i] / average_cnt
+                    
+                    self._send_adc_array( last, average )
+                    average = [ 0, 0, 0, 0 ]
+                    average_state = 0
+            else:
+                self._send_adc_array( last, current )
+                        
+            if self._dac_enabled:
+                self._writeDAC(self._dac)
+                
+    def _send_adc_array(self, last, current):
+        for i in range(4):
+            if  current[i] != last[i]:
+                last[i] = current[i]
+                if i == 0:
+                    self.adc_0 ( current[i] )
+                if i == 1:
+                    self.adc_1 ( current[i] )
+                if i == 2:
+                    self.adc_2 ( current[i] )
+                if i == 3:
+                    self.adc_3 ( current[i] )
+                    
+    def adc_0(self, value):
+        self.sendValue(value)
+
+    def adc_1(self, value):
+        self.sendValue(value)
+    
+    def adc_2(self, value):
+        self.sendValue(value)
+    
+    def adc_3(self, value):
+        self.sendValue(value)
+   
+    def dac(self, value):
+        """input from scratch to adapter, value = 0..255"""
+        v = float(value)
+        if v < 0.0:
+            v = 0.0
+        if v > 255.0:
+            v = 255.0
+       
+        vi = int(v)
+        self._dac = vi    
+        
+    # Read single ADC Channel
+    def _readADC(self, __chan = 0):
+        __checkedChan = self.__checkChannelNo(__chan)
  
+        self.__bus.write_byte(self.__addr, 0x40 | __checkedChan & 0x03)  # mod my Max - says it more reliable
+#       self.__bus.write_byte(self.__addr, __checkedChan  | self.__DACEnabled)
+ 
+        __reading = self.__bus.read_byte(self.__addr) # seems to need to throw away first reading
+        __reading = self.__bus.read_byte(self.__addr) # read A/D
+        return __reading        
+    
+    # Read all ADC channels
+    def _readAllADC(self):
+        __readings = []
+        AUTO_INCREMENT = 0x04
+        DAC_ENABLE = 0x40
+        if self._dac_enabled:
+            cmd = DAC_ENABLE | AUTO_INCREMENT
+        else:
+            cmd = AUTO_INCREMENT
+
+        __readings = self.readList(cmd, 5)
+        __readings = __readings[1:]
+        return __readings   
+    
+    # Set DAC value and enable output
+    def _writeDAC(self, __val=0):
+#        self.__DACEnabled = 0x40
+#        self.__bus.write_byte_data(self.__addr, self.__DACEnabled, __checkedVal)
+        DAC_ENABLE = 0x40
+        self.write8(DAC_ENABLE, __val )
+    
+    # Enable DAC output    
+    def _enableDAC(self):
+        DAC_ENABLE = 0x40
+        self.write8( DAC_ENABLE, 0 )
+    
+    # Disable DAC output
+    def _disableDAC(self):
+        DACDisabled = 0x00
+        self.write8( DACDisabled, 0 )
+    
+# --------------------------------------------------------------------------------------
+# The MPR121 Adapter is based on code from adafruit.com
+# 
+class MPR121_Channel():
+    # pylint: disable=protected-access
+    """Helper class to represent a touch channel on the MPR121. Not meant to
+    be used directly."""
+    def __init__(self, mpr121, channel):
+        self._mpr121 = mpr121
+        self._channel = channel
+
+    @property
+    def value(self):
+        """Whether the touch pad is being touched or not."""
+        return self._mpr121.touched() & (1 << self._channel) != 0
+
+    @property
+    def raw_value(self):
+        """The raw touch measurement."""
+        return self._mpr121.filtered_data(self._channel)
+
+    @property
+    def threshold(self):
+        """The touch threshold."""
+        buf = bytearray(1)
+        self._mpr121._read_register_bytes(Touch_MPR121.MPR121_TOUCHTH_0 + 2*self._channel, buf, 1)
+        return buf[0]
+
+    @threshold.setter
+    def threshold(self, value):
+        self._mpr121._write_register_byte(Touch_MPR121.MPR121_TOUCHTH_0 + 2*self._channel, value)
+
+    @property
+    def release_threshold(self):
+        """The release threshold."""
+        buf = bytearray(1)
+        self._mpr121._read_register_bytes(Touch_MPR121.MPR121_RELEASETH_0 + 2*self._channel, buf, 1)
+        return buf[0]
+
+    @release_threshold.setter
+    def release_threshold(self, value):
+        self._mpr121._write_register_byte(Touch_MPR121.MPR121_RELEASETH_0 + 2*self._channel, value)
+
+
+class Touch_MPR121(adapter.adapters.I2CAdapter):
+    """Driver for the MPR121 capacitive touch breakout board."""
+
+    # Register addresses.  Unused registers commented out to save memory.
+    # pylint: disable=bad-whitespace
+    MPR121_I2CADDR_DEFAULT = 0x5A
+    MPR121_TOUCHSTATUS_L   = 0x00
+    # MPR121_TOUCHSTATUS_H   = 0x01
+    MPR121_FILTDATA_0L     = 0x04
+    # MPR121_FILTDATA_0H     = 0x05
+    MPR121_BASELINE_0      = 0x1E
+    MPR121_MHDR            = 0x2B
+    MPR121_NHDR            = 0x2C
+    MPR121_NCLR            = 0x2D
+    MPR121_FDLR            = 0x2E
+    MPR121_MHDF            = 0x2F
+    MPR121_NHDF            = 0x30
+    MPR121_NCLF            = 0x31
+    MPR121_FDLF            = 0x32
+    MPR121_NHDT            = 0x33
+    MPR121_NCLT            = 0x34
+    MPR121_FDLT            = 0x35
+    MPR121_TOUCHTH_0       = 0x41
+    MPR121_RELEASETH_0     = 0x42
+    MPR121_DEBOUNCE        = 0x5B
+    MPR121_CONFIG1         = 0x5C
+    MPR121_CONFIG2         = 0x5D
+    # MPR121_CHARGECURR_0    = 0x5F
+    # MPR121_CHARGETIME_1    = 0x6C
+    MPR121_ECR             = 0x5E
+    # MPR121_AUTOCONFIG0     = 0x7B
+    # MPR121_AUTOCONFIG1     = 0x7C
+    # MPR121_UPLIMIT         = 0x7D
+    # MPR121_LOWLIMIT        = 0x7E
+    # MPR121_TARGETLIMIT     = 0x7F
+    # MPR121_GPIODIR         = 0x76
+    # MPR121_GPIOEN          = 0x77
+    # MPR121_GPIOSET         = 0x78
+    # MPR121_GPIOCLR         = 0x79
+    # MPR121_GPIOTOGGLE      = 0x7A
+    MPR121_SOFTRESET       = 0x80
+    # pylint: enable=bad-whitespace
+
+    mandatoryParameters = { 'poll.interval': '0.1', 
+                           'i2c.bus' : '1', 
+                           
+                            # ADDR not connected: 0x5A
+                            # ADDR tied to 3V: 0x5B
+                            # ADDR tied to SDA: 0x5C
+                            # ADDR tied to SCL: 0x5D
+
+                           'i2c.address' :'0x5a'
+                          }
+
+    def __init__(self):
+        adapter.adapters.I2CAdapter.__init__(self)
+        self._buffer = bytearray(2)
+        self._channels = [None]*12
+        
+
+    def setActive (self, state):
+        if debug:
+            print(self.name, "setActive", state)
+        #
+        # use default implementation to start up adapter
+        #
+        adapter.adapters.I2CAdapter.setActive(self, state);
+
+    def run(self):
+        if debug:
+            print(self.name, "run()")
+            
+        self.reset()
+        
+        _del = float(self.parameters['poll.interval'])
+        
+        # 
+        # tf, ef are arrays of functions
+        #    
+        tf = []
+        tf.append( self.touch_00 )    
+        tf.append( self.touch_01 )    
+        tf.append( self.touch_02 )    
+        tf.append( self.touch_03 )    
+        tf.append( self.touch_04 )    
+        tf.append( self.touch_05 )    
+        tf.append( self.touch_06 )    
+        tf.append( self.touch_07 )    
+        tf.append( self.touch_08 )    
+        tf.append( self.touch_09 )    
+        tf.append( self.touch_10 )    
+        tf.append( self.touch_11 )    
+
+        ef = []
+        ef.append( self.event_00 )    
+        ef.append( self.event_01 )    
+        ef.append( self.event_02 )    
+        ef.append( self.event_03 )    
+        ef.append( self.event_04 )    
+        ef.append( self.event_05 )    
+        ef.append( self.event_06 )    
+        ef.append( self.event_07 )    
+        ef.append( self.event_08 )    
+        ef.append( self.event_09 )    
+        ef.append( self.event_10 )    
+        ef.append( self.event_11 )    
+
+        last = self.touched()
+
+        for i in range(12):
+            mask = 1 << i
+            
+            if (last & mask ) : 
+                tf[i] ( 1 )
+            else:
+                tf[i] ( 0 )             
+
+        while not self.stopped():
+            #
+            self.delay(_del)
+            current = self.touched()
+            if debug:
+                print("{c:5d} {c:012b}   {c2:04b} {c1:04b} {c0:04b}".format( c = current, 
+                                                                c2 = ((current >> 8) & 0xf), 
+                                                                c1 = ((current >> 4) & 0xf), 
+                                                                c0 = ((current >> 0) & 0xf) ) )
+            for i in range(12):
+                mask = 1 << i
+                
+                if (last & mask ) != (current & mask ):  
+                    if current & mask > 0:
+                        ef[i] () 
+                        tf[i] ( 1 )
+                    else:
+                        tf[i] ( 0 )             
+ 
+            last = current
+    
+    def touch_00(self, value):  self.sendValue(value)
+    def touch_01(self, value):  self.sendValue(value)
+    def touch_02(self, value):  self.sendValue(value)
+    def touch_03(self, value):  self.sendValue(value)
+    def touch_04(self, value):  self.sendValue(value)
+    def touch_05(self, value):  self.sendValue(value)
+    def touch_06(self, value):  self.sendValue(value)
+    def touch_07(self, value):  self.sendValue(value)
+    def touch_08(self, value):  self.sendValue(value)
+    def touch_09(self, value):  self.sendValue(value)
+    def touch_10(self, value):  self.sendValue(value)
+    def touch_11(self, value):  self.sendValue(value)
+    
+    def event_00(self):  self.send()
+    def event_01(self):  self.send()
+    def event_02(self):  self.send()
+    def event_03(self):  self.send()
+    def event_04(self):  self.send()
+    def event_05(self):  self.send()
+    def event_06(self):  self.send()
+    def event_07(self):  self.send()
+    def event_08(self):  self.send()
+    def event_09(self):  self.send()
+    def event_10(self):  self.send()
+    def event_11(self):  self.send()
+
+    def __getitem__(self, key):
+        if key < 0 or key > 11:
+            raise IndexError('Pin must be a value 0-11.')
+        if self._channels[key] is None:
+            self._channels[key] = MPR121_Channel(self, key)
+        return self._channels[key]
+
+    @property
+    def touched_pins(self):
+        """A tuple of touched state for all pins."""
+        touched = self.touched()
+        return tuple([bool(touched >> i & 0x01) for i in range(12)])
+
+    def _write_register_byte(self, register, value):
+        # Write a byte value to the specifier register address.
+        # MPR121 must be put in Stop Mode to write to most registers
+        stop_required = True
+        if register == Touch_MPR121.MPR121_ECR or 0x73 <= register <= 0x7A:
+            stop_required = False
+        #with self._i2c:
+        #    if stop_required:
+        #        self._i2c.write(bytes([Touch_MPR121.MPR121_ECR, 0x00]))
+        #    self._i2c.write(bytes([register, value]))
+        #    if stop_required:
+        #        self._i2c.write(bytes([Touch_MPR121.MPR121_ECR, 0x8F]))
+
+        if stop_required:
+            self.write8( Touch_MPR121.MPR121_ECR, 0x00 )
+        
+        self.write8( register, value )
+        
+        if stop_required:
+            self.write8( Touch_MPR121.MPR121_ECR,  0x8F  )
+        
+    def _read_register_bytes(self, register, result, length=None):
+        # Read the specified register address and fill the specified result byte
+        # array with result bytes.  Make sure result buffer is the desired size
+        # of data to read.
+        if length is None:
+            length = len(result)
+        #with self._i2c:
+        #    self._i2c.write_then_readinto(bytes([register]), result,
+        #                                  in_end=length, stop=False)
+        self.writeList( register, [] )
+        self.readList( register, length)
+
+    def reset(self):
+        """Reset the MPR121 into a default state ready to detect touch inputs.
+        """
+        # Write to the reset register.
+        self._write_register_byte(Touch_MPR121.MPR121_SOFTRESET, 0x63)
+        time.sleep(0.001) # This 1ms delay here probably isn't necessary but can't hurt.
+        # Set electrode configuration to default values.
+        self._write_register_byte(Touch_MPR121.MPR121_ECR, 0x00)
+        
+        # Check CDT, SFI, ESI configuration is at default values.
+        ## self._read_register_bytes(Touch_MPR121.MPR121_CONFIG2, self._buffer, 1)
+        self._buffer = self.readList(Touch_MPR121.MPR121_CONFIG2, 2)
+        
+        if debug:
+            print("buffer",  self._buffer )
+            
+        if self._buffer[0] != 0x24:
+            raise RuntimeError('Failed to find MPR121 in expected config state!')
+        # Default touch and release thresholds
+        for i in range(12):
+            self._write_register_byte(Touch_MPR121.MPR121_TOUCHTH_0 + 2*i, 12)
+            self._write_register_byte(Touch_MPR121.MPR121_RELEASETH_0 + 2*i, 6)
+        # Configure baseline filtering control registers.
+        self._write_register_byte(Touch_MPR121.MPR121_MHDR, 0x01)
+        self._write_register_byte(Touch_MPR121.MPR121_NHDR, 0x01)
+        self._write_register_byte(Touch_MPR121.MPR121_NCLR, 0x0E)
+        self._write_register_byte(Touch_MPR121.MPR121_FDLR, 0x00)
+        self._write_register_byte(Touch_MPR121.MPR121_MHDF, 0x01)
+        self._write_register_byte(Touch_MPR121.MPR121_NHDF, 0x05)
+        self._write_register_byte(Touch_MPR121.MPR121_NCLF, 0x01)
+        self._write_register_byte(Touch_MPR121.MPR121_FDLF, 0x00)
+        self._write_register_byte(Touch_MPR121.MPR121_NHDT, 0x00)
+        self._write_register_byte(Touch_MPR121.MPR121_NCLT, 0x00)
+        self._write_register_byte(Touch_MPR121.MPR121_FDLT, 0x00)
+        # Set other configuration registers.
+        self._write_register_byte(Touch_MPR121.MPR121_DEBOUNCE, 0)
+        self._write_register_byte(Touch_MPR121.MPR121_CONFIG1, 0x10) # default, 16uA charge current
+        self._write_register_byte(Touch_MPR121.MPR121_CONFIG2, 0x20) # 0.5uS encoding, 1ms period
+        # Enable all electrodes.
+        self._write_register_byte(Touch_MPR121.MPR121_ECR, 0x8F) # start with first 5 bits of baseline tracking
+
+    def filtered_data(self, pin):
+        """Return filtered data register value for the provided pin (0-11).
+        Useful for debugging.
+        """
+        if pin < 0 or pin > 11:
+            raise ValueError('Pin must be a value 0-11.')
+        self._read_register_bytes(Touch_MPR121.MPR121_FILTDATA_0L + pin*2, self._buffer)
+        return ((self._buffer[1] << 8) | (self._buffer[0])) & 0xFFFF
+
+    def baseline_data(self, pin):
+        """Return baseline data register value for the provided pin (0-11).
+        Useful for debugging.
+        """
+        if pin < 0 or pin > 11:
+            raise ValueError('Pin must be a value 0-11.')
+        self._read_register_bytes(Touch_MPR121.MPR121_BASELINE_0 + pin, self._buffer, 1)
+        return self._buffer[0] << 2
+
+    def touched(self):
+        """Return touch state of all pins as a 12-bit value where each bit
+        represents a pin, with a value of 1 being touched and 0 not being touched.
+        """
+        ## self._read_register_bytes(Touch_MPR121.MPR121_TOUCHSTATUS_L, self._buffer)
+        
+        self._buffer = self.readList(Touch_MPR121.MPR121_TOUCHSTATUS_L, 2)
+        
+        return ((self._buffer[1] << 8) | (self._buffer[0])) & 0xFFFF
+
+    def is_touched(self, pin):
+        """Return True if the specified pin is being touched, otherwise returns
+        False.
+        """
+        if pin < 0 or pin > 11:
+            raise ValueError('Pin must be a value 0-11.')
+        touches = self.touched()
+        return (touches & (1 << pin)) > 0

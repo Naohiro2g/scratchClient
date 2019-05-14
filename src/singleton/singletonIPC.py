@@ -38,9 +38,22 @@ class SingletonSocketClient(TCPServer):
             sock.connect(self.server_address)
             if debug:
                 print("_send connect")
-            sock.sendall(data + "\n")
+
+            sData = data + "\n"
+
+            if sys.version_info.major == 2:
+                try:
+                    c = bytearray(sData)
+                except TypeError as e:
+                    logger.error(e)
+                    c = bytearray(sData, 'utf-8' )
+                    
+            if sys.version_info.major >= 3:
+                c = bytes( sData, 'utf-8' )
+ 
+            sock.send(c)               
             if debug:
-                print("_send sendall")
+                print("_send send")
         
             # Receive data from the server and shut down
             received = sock.recv(1024)
@@ -75,8 +88,8 @@ class SingletonTCPHandler(BaseRequestHandler):
         else:
             queue = self.server.getQueue()
             if debug:
-                print (self.data)
-            queue.put(self.data)
+                print ("sock.receive", self.data)
+            queue.put(self.data.decode("ascii") )
             # just send back the same data, but upper-case 
             self.request.sendall(self.data.upper())
 

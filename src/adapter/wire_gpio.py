@@ -179,7 +179,7 @@ class Wire_SHTx (adapter.adapters.GPIOAdapter):
         if debug:
             logger.info("__cleanup")
         # data pin first, da sonst ggf bei Freigeben 
-        # der clk-oin ein Signal ausgelöst wird
+        # der clk-oin ein Signal ausgel旦st wird
         self.gpioManager.direction_in(self.dataPort)
         self.gpioManager.direction_in(self.clockPort)
              

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 # --------------------------------------------------------------------------------------------
 # Implementation of scratch Remote Sensor Protocol Client
@@ -33,157 +33,186 @@
 # - Configuration in XML for various IO-settings
 # - GUI for monitoring and simulation on non-Raspberry environments 
 # - added various devices
+# - scratch2 support
 # --------------------------------------------------------------------------------------------
-# target environment:  python release 2.7
-#                      python release 3.3
+# target environment:  python release 3.3, 3.6 preferred
+#                      python release 2.7 will no longer be actively supported.
 # --------------------------------------------------------------------------------------------
 # changes:
-# 
+#
+ 
 changes = [
-'2017-05-27 lirc IR receive adapter.',
-'2017-04-22 openweathermap api, added possibility to set location.',
-'2017-04-21 sonicpi-adapter added',
-'2017-04-06 mqtt-adapter with optional username, password',
-'2017-03-19 Minecraft-Adapter for pi, based on mcpi-library',
-'2017-03-16 Wedo2-Adapter, additional log messages., wedo2scratch script, changed two buttons in motion sensor setup.',
-'2017-03-13 added SCROLL PHAT HD-Adapter and sample scratch script',
-'2017-03-13 added MICRO DOT PHAT-Adapter',
-'2017-03-05 extensions in config file are marked with <extension>. Old files work with new code. Affects ADC_MCP3202_10_Zone_Input, UNO_Adapter, MQTT_Adapter, MCP23S17_Adapter, CommunicationAdapter, WebsocketXY_Adapter.',    
-'2017-03-04 added mqtt-adapter.',    
-'2017-02-27 arduino.ino, added counter function, changes in config tool.',    
-'2017-02-18 arduino.ino, comment changes, additional ident reset command.',    
-'2017-02-17 bugfix: wrong config file did not cause program to terminate.',    
-'2017-02-14 singleton-ipc, added; added command line switch to select singleton logic',    
-'2017-02-13 singleton-pid, redesign, changes in shutdown logic',    
-'2017-02-12 UNO_Adapter, reconnect logic reworked; arduinoUno with added "disconnect"-command',    
-'2017-02-10 config tool to edit UNO_Adapter xml config files included.',    
-'2017-01-26 minor changes in log messages on scratch connection.',  
-'2017-01-16 improved connection handling and last-value in arduinoUNO adapter.',  
-'2017-01-10 all queue definitions wrapped by a helper class to fix python2/3 compatibility.',  
-#
-'2016-12-19 arduino nano used as neopixel driver',  
-'2016-12-01 pico2wave tts adapter',  
-'2016-10-30 bugfix adapter.arduino.UNO_Adapter (usage of analog pins on arduino for digital io)',  
-'2016-09-26 optional parameters for servo adapter DMA_PWMServo',  
-'2016-08-19 added hc-sr04 sensor based on pigpiod',           
-'2016-08-14 added lego wedo2 adapter',           
-'2016-07-31 added openweathermap-api access',
-#
-'2016-06-05 added config file config_AT42QT1070',
-'2016-05-30 Adapter GpioButtonInput is deprecated, use GpioEventInput instead',
-'2016-05-28 fixed bug in GpioEventInput (inverse did not work)',
-'2016-05-22 DS1820-Adapter, added error messages',
-'2016-05-21 UNO_Adapter, for posix systems: added an exclusive lock to serial connection',           
-'2016-04-17 removed a flaw in accessing files.',
-'2016-03-28 added twitter adapter.',
-'2016-03-25 added arduino adapter for LEGO powerfunctions.',
-'2016-03-19 added support for external speech recognition adapter.linux.Linux_ASR_Adapter.',
-'2016-03-07 added aplay and arecord command adapter.',
-'2016-02-29 bugfix RPIO2 library: pwm to zero did not reliably switch off when fullscale to zero.',
-'2016-02-28 ident code for arduino sketch.',
-'2016-02-21 performance optimizations in arduinoUNO adapter and arduino sketch.',
-'2016-02-15 added servo capability for arduinoUNO-adapter, reworked reconnect policy for this adapter.',
-'2016-01-02 dma based PWM added, gpioLib-switch removed.',
-#
-'2015-12-09 bug fixes in pwm-servo; value range checks added.',
-'2015-11-16 pianoHat Adapter added.',
-'2015-11-16 bugfix in GpioInput-Adapter.',
-'2015-11-12 added blink(1)'
-'2015-10-16 modified the "is the code already started"-code; made the code relative to current python code.',
-'2015-10-16 corrected a bug in formatting an error message',
-'2015-09-26 added senseHat-adapter LED, environmental, IMU',
-'2015-09-25 added senseHat_Adapter (limited functionality, LED only)',
-'2015-08-29 reworked CommunicationAdapter, which was broken after the publish-subscibe reengineering',
-'2015-08-03 RFID-Reader adapter added',
-'2015-08-01 pico board adapter added',
-'2015-07-17 GpioValueInput-Adapter added. Allows to send predefined values on low/high',
-'2015-07-14 MCP3008',
-'2015-07-09 error recovery strategy for scratch 1.4 2015-jan-15, issue #136',
-#
-'2015-05-25 added arduinoUNO adapter.',
-'2015-05-23 system time adapter added',
-'2015-05-05 piFace support, piGlow support',
-'2015-05-03 solved display issues in GUI for multiple scratch variables into one adapter method; added PCA9865; removed bugs in MCP23S17. Refactoring the i2c-system.',
-'2015-04-19 removed bug in positioning popup editor in adapter display',
-'2015-04-13 internal: implemented plugin methods for an adapter to modify web server.',
-'2015-04-11 added DHT22 with atmega328-coprocessor; added smartphone positional sensors',
-'2015-04-08 additional configuration check: input/output names unique in config.',
-'2015-04-07 converted event publishing to pubsub pattern, web interface to websocket',
-'2015-03-28 added atmel-328 adapter for hc-sr04',
-'2015-03-16 added operation system command adapter',
-'2015-03-16 added half-bridge motor adapter',
-'2015-03-14 added MCP23S17-adapter',
-'2015-03-01 added usb adapter for HID-barcode-scanner',
-'2015-02-12 added servoblaster adapter',
-'2015-01-04 removed quote-handling-problem in broadcast name strings',
-#
-'2014-12-22 added a lookup strategy for config files which allows for simpler command line syntax',
-'2014-12-17 namevalueparser, corrected for quote in name',           
-'2014-12-13 worked on python3 compatibility; changed package structure (adapter.adapter->adapter.adapters); fixed codepage conversion problems in web access.',           
-'2014-11-14 Added DS1820 adapter.',           
-'2014-10-17 Modified help output.',           
-'2014-10-03 modified socket code, outgoing to better handle utf8 strings; modified test adapter with different data types.',           
-'2014-09-20 changed dma channel to 4',           
-'2014-09-01 Added BH1750 Luminosity Sensor, i2c bus',           
-'2014-08-29 GpioInput, fixed "inverse"-Problem.',           
-'2014-08-08 texttospeech, fixed an exception problem.',           
-'2014-08-03 renamed ADCInput to ADC_MCP3202_10_Input.',           
-'2014-08-01 bug fix for activation of adapters.',           
-'2014-07-30 renamed adapter.stepper.Stepper to adapter.stepper.BipolarStepper\
-            added adapter.stepper.UnipolarStepper',
-'2014-07-26 added \'changes\' command line switch.',
-'2014-07-26 added SIM800 GSM Modem support.',
-'2014-07-12 added GpioStateOutput, for signalling client state. Needed some \
-            adjustments in interrupt handling to allow for this special type of \
-             adapter. ',
-#
-'2014-06-19 performance optimizations adapter, commandResolve-Logic (no eval).',
-'2014-06-17 minor performance optimizations in namevalueparser.',
-'2014-06-12 corrected some instability in receiving variables.',
-'2014-05-01 changed send method to scratch, utf-8 aware and pytho3 compatible',
-'2014-03-31 fixed config file config_ikg_7segment.xml  \
-            added error checks in reading xml files.',
-'2014-03-12 changed data receive logic/process dataraw to be more robust. \
-            Instantiation the managers on need only.',
-'2014-03-11 changed data receive logic to work even for very long records.',
-'2014-02-22 added I2C-Handlers for ADC ADS1015 ',
-'2014-02-03 enable one broadcast/value for multiple adapters',
-'2014-01-24 fixed a conversion error from adapter to framework (now always strings)',
-'2014-01-06 added WS2801-Adapter, some bug fixes in SPI handling',
-#
-'2013-12-26 added remote connection adapter',
-'2013-12-01 configuration file for portMapping in xml',
-'2013-11-16 added sighup in order to catch terminal closed.',
-'2013-11-16 added code to enforce a singleton running instance',
-]
+    ('2018-11-19', 'added MPR121 device.'),
+    ('2018-11-19', 'removed perpetual scratch 1.4 connection reminder.'),
+    ('2018-11-19', 'bugfix value conversion scratch2 int values and other fixes for value conversions.'),
+    ('2018-11-15', 'added gps adapter for GY_GPS6MV2 provided by SFYRAKIS.'),
+    ('2018-11-15', 'favicon 404 error corrected.'),
+    ('2018-11-14', 'Logging config file can be defined on command line. Add NotificationHandler class.'),
+    ('2018-11-11', 'Value conversion error for servo, pwm in arduino adapter fixed.'),
+    ('2018-11-10', 'web application start/stop restructure to handle tornado 5.x better.'),
+    ('2018-11-01', 'W1_DS1820: slight changes in log messages.'),
+    #
+    ('2018-04-02', 'added compatibility support for tornado release 5'),
+    ('2018-02-25', 'changed scratch2 extension loader; changed some conversions in arduino_uno script'),
+    ('2018-02-18', 'bugfix in javascript for adapter display.'),
+    ('2018-02-17', 'config for config_camjam_edukit added (experimental, could not test'),
+    ('2018-02-16', 'config tool arduinoUNO, do not allow ''undef'' as a name; scratch2Extension, special handling of ''undef'' events or names'), 
+    ('2018-02-13', 'config tool for arduinoUno: remember command line file for save operation. Changed scratch2 extension to name-value pairs'), 
+    ('2018-02-11', 'various experiments with scratch2 extension'), 
+    ('2018-02-05', 'bugfix in scratchClientServer: scratch2 connection used orphaned dictionary which stored the name->id-relation, but was never checked for existing names'), 
+    ('2018-02-04', 'added scratch2 extension installer: scratchClient/tools/scratch2connection/install.py'),
+    ('2018-01-28', 'scratch2 connection: made js-code labels independent from variable names.'),
+    ('2018-01-28', 'arduino uno sketch: Bugfix 0xff eeprom code'),
+    ('2018-01-26', 'Bugfix: python3 bytes, bytebuffer handling corrected.'),
+    ('2018-01-25', 'Bugfix: python2->3 incompatibility in arduino UNO adapter in combination with older arduino firmware.'),
+    ('2018-01-24', 'Bugfix: python2->3 incompatibility in arduino UNO adapter solved.'),
+    ('2018-01-22', 'Bugfix: version date now automatically matches first entry in changes.'),
+    ('2018-01-07', 'Documentation, added adapter.gpio.GpioMotorPWM to configuration of adapters.'),    
+    #
+    ('2017-12-21', 'Bugfix: wedo adapter, Enrico Gallo reported a bug in setting tilt sensor.'),    
+    ('2017-11-19', 'Bugfix: corrected error message in stepper module.'),    
+    ('2017-10-17', 'dht11 based on pigpiod.'),    
+    ('2017-10-11', 'pwm adapter using pigpiod.'),    
+    ('2017-10-10', 'Bugfix in socket singleton again; dma_pwm bug fixes when values overflow.'),    
+    ('2017-10-09', 'Bugfix in socket singleton; python3 compatibility in various modules'),    
+    ('2017-10-08', 'the with-loglevel does not work; workaround increase log level on "connected" to warning'),    
+    ('2017-07-17', 'bugfix HCSR04-adapter; renamed class adapter.pigpiod.HC_SR04_Adapter to adapter.pigpiodAdapter.HC_SR04_Adapter'),    
+    ('2017-07-08', 'add CAP1208, add ExplorerHatPro config'),    
+    ('2017-07-01', 'add description of scratch2/raspbian to web docu. Add hotkeys for java arduinoUNO config tool.'),    
+    #
+    ('2017-06-29', 'add configuser dir to search path in -c option'),    
+    ('2017-06-20', 'arduinoUNO arduino program: handles unitialized eeprom as empty'),    
+    ('2017-06-17', 'bugfix scratchClientConfig, counter-pullup not handled correctly'),    
+    ('2017-06-17', 'bugfix scratchClientConfig, baud rate not set, a6,a7 analog in not generated xml'),    
+    ('2017-06-16', 'gpio, pwm servo, corrected rate calculation'),    
+    ('2017-06-15', 'scratch 1.4 usage hints for web page'),    
+    ('2017-06-15', 'arduinoUNO adapter, ident handling added'),    
+    ('2017-06-13', 'bug fixes in error messages for gpio handling in config'),    
+    ('2017-06-10', 'pi2go config and adapters ADC_DAC_PCF8591 and Gpio_HCSR04_OnePin_Input'),    
+    ('2017-06-04', 'major rework: logging in json, tornato replaces cherrypy, scratchx-support, bug fixes in monitoring&simulation page animation; remove gui-switches from commandline'),    
+    ('2017-05-27', 'lirc IR receive adapter.'),
+    ('2017-04-22', 'openweathermap api, added possibility to set location.'),
+    ('2017-04-21', 'sonicpi-adapter added'),
+    ('2017-04-06', 'mqtt-adapter with optional username, password'),
+    ('2017-03-19', 'Minecraft-Adapter for pi, based on mcpi-library'),
+    ('2017-03-16', 'Wedo2-Adapter, additional log messages., wedo2scratch script, changed two buttons in motion sensor setup.'),
+    ('2017-03-13', 'added SCROLL PHAT HD-Adapter and sample scratch script'),
+    ('2017-03-13', 'added MICRO DOT PHAT-Adapter'),
+    ('2017-03-05', 'extensions in config file are marked with <extension>. Old files work with new code. Affects ADC_MCP3202_10_Zone_Input, UNO_Adapter, MQTT_Adapter, MCP23S17_Adapter, CommunicationAdapter, WebsocketXY_Adapter.'),    
+    ('2017-03-04', 'added mqtt-adapter.'),    
+    ('2017-02-27', 'arduino.ino, added counter function, changes in config tool.'),    
+    ('2017-02-18', 'arduino.ino, comment changes, additional ident reset command.'),    
+    ('2017-02-17', 'bugfix: wrong config file did not cause program to terminate.'),    
+    ('2017-02-14', 'singleton-ipc, added; added command line switch to select singleton logic'),    
+    ('2017-02-13', 'singleton-pid, redesign, changes in shutdown logic'),    
+    ('2017-02-12', 'UNO_Adapter, reconnect logic reworked; arduinoUno with added "disconnect"-command'),    
+    ('2017-02-10', 'config tool to edit UNO_Adapter xml config files included.'),    
+    ('2017-01-26', 'minor changes in log messages on scratch connection.'),  
+    ('2017-01-16', 'improved connection handling and last-value in arduinoUNO adapter.'),  
+    ('2017-01-10', 'all queue definitions wrapped by a helper class to fix python2/3 compatibility.'),  
+    #
+    ('2016-12-19', 'arduino nano used as neopixel driver'),  
+    ('2016-12-01', 'pico2wave tts adapter'),  
+    ('2016-10-30', 'bugfix adapter.arduino.UNO_Adapter (usage of analog pins on arduino for digital io)'),  
+    ('2016-09-26', 'optional parameters for servo adapter DMA_PWMServo'),  
+    ('2016-08-19', 'added hc-sr04 sensor based on pigpiod'),           
+    ('2016-08-14', 'added lego wedo2 adapter'),           
+    ('2016-07-31', 'added openweathermap-api access'),
+    #
+    ('2016-06-05', 'added config file config_AT42QT1070'),
+    ('2016-05-30', 'Adapter GpioButtonInput is deprecated, use GpioEventInput instead'),
+    ('2016-05-28', 'fixed bug in GpioEventInput (inverse did not work)'),
+    ('2016-05-22', 'DS1820-Adapter, added error messages'),
+    ('2016-05-21', 'UNO_Adapter, for posix systems: added an exclusive lock to serial connection'),           
+    ('2016-04-17', 'removed a flaw in accessing files.'),
+    ('2016-03-28', 'added twitter adapter.'),
+    ('2016-03-25', 'added arduino adapter for LEGO powerfunctions.'),
+    ('2016-03-19', 'added support for external speech recognition adapter.linux.Linux_ASR_Adapter.'),
+    ('2016-03-07', 'added aplay and arecord command adapter.'),
+    ('2016-02-29', 'bugfix RPIO2 library: pwm to zero did not reliably switch off when fullscale to zero.'),
+    ('2016-02-28', 'ident code for arduino sketch.'),
+    ('2016-02-21', 'performance optimizations in arduinoUNO adapter and arduino sketch.'),
+    ('2016-02-15', 'added servo capability for arduinoUNO-adapter, reworked reconnect policy for this adapter.'),
+    ('2016-01-02', 'dma based PWM added, gpioLib-switch removed.'),
+    #
+    ('2015-12-09', 'bug fixes in pwm-servo; value range checks added.'),
+    ('2015-11-16', 'pianoHat Adapter added.'),
+    ('2015-11-16', 'bugfix in GpioInput-Adapter.'),
+    ('2015-11-12', 'added blink(1)'),
+    ('2015-10-16', 'modified the "is the code already started"-code; made the code relative to current python code.'),
+    ('2015-10-16', 'corrected a bug in formatting an error message'),
+    ('2015-09-26', 'added senseHat-adapter LED, environmental, IMU'),
+    ('2015-09-25', 'added senseHat_Adapter (limited functionality, LED only)'),
+    ('2015-08-29', 'reworked CommunicationAdapter, which was broken after the publish-subscibe reengineering'),
+    ('2015-08-03', 'RFID-Reader adapter added'),
+    ('2015-08-01', 'pico board adapter added'),
+    ('2015-07-17', 'GpioValueInput-Adapter added. Allows to send predefined values on low/high'),
+    ('2015-07-14', 'MCP3008'),
+    ('2015-07-09', 'error recovery strategy for scratch 1.4 2015-jan-15, issue #136'),
+    #
+    ('2015-05-25', 'added arduinoUNO adapter.'),
+    ('2015-05-23', 'system time adapter added'),
+    ('2015-05-05', 'piFace support, piGlow support'),
+    ('2015-05-03', 'solved display issues in GUI for multiple scratch variables into one adapter method; added PCA9865; removed bugs in MCP23S17. Refactoring the i2c-system.'),
+    ('2015-04-19', 'removed bug in positioning popup editor in adapter display'),
+    ('2015-04-13', 'internal: implemented plugin methods for an adapter to modify web server.'),
+    ('2015-04-11', 'added DHT22 with atmega328-coprocessor; added smartphone positional sensors'),
+    ('2015-04-08', 'additional configuration check: input/output names unique in config.'),
+    ('2015-04-07', 'converted event publishing to pubsub pattern, web interface to websocket'),
+    ('2015-03-28', 'added atmel-328 adapter for hc-sr04'),
+    ('2015-03-16', 'added operation system command adapter'),
+    ('2015-03-16', 'added half-bridge motor adapter'),
+    ('2015-03-14', 'added MCP23S17-adapter'),
+    ('2015-03-01', 'added usb adapter for HID-barcode-scanner'),
+    ('2015-02-12', 'added servoblaster adapter'),
+    ('2015-01-04', 'removed quote-handling-problem in broadcast name strings'),
+    #
+    ('2014-12-22', 'added a lookup strategy for config files which allows for simpler command line syntax'),
+    ('2014-12-17', 'namevalueparser, corrected for quote in name'),           
+    ('2014-12-13', 'worked on python3 compatibility; changed package structure (adapter.adapter->adapter.adapters); fixed codepage conversion problems in web access.'),           
+    ('2014-11-14', 'Added DS1820 adapter.'),           
+    ('2014-10-17', 'Modified help output.'),           
+    ('2014-10-03', 'modified socket code, outgoing to better handle utf8 strings; modified test adapter with different data types.'),           
+    ('2014-09-20', 'changed dma channel to 4'),           
+    ('2014-09-01', 'Added BH1750 Luminosity Sensor, i2c bus'),           
+    ('2014-08-29', 'GpioInput, fixed "inverse"-Problem.'),           
+    ('2014-08-08', 'texttospeech, fixed an exception problem.'),           
+    ('2014-08-03', 'renamed ADCInput to ADC_MCP3202_10_Input.'),           
+    ('2014-08-01', 'bug fix for activation of adapters.'),           
+    ('2014-07-30', 'renamed adapter.stepper.Stepper to adapter.stepper.BipolarStepper added adapter.stepper.UnipolarStepper'),
+    ('2014-07-26', 'added \'changes\' command line switch.'),
+    ('2014-07-26', 'added SIM800 GSM Modem support.'),
+    ('2014-07-12', 'added GpioStateOutput, for signalling client state. Needed some  adjustments in interrupt handling to allow for this special type of adapter. '),
+    #
+    ('2014-06-19', 'performance optimizations adapter, commandResolve-Logic (no eval).'),
+    ('2014-06-17', 'minor performance optimizations in namevalueparser.'),
+    ('2014-06-12', 'corrected some instability in receiving variables.'),
+    ('2014-05-01', 'changed send method to scratch, utf-8 aware and pytho3 compatible'),
+    ('2014-03-31', 'fixed config file config_ikg_7segment.xml added error checks in reading xml files.'),
+    ('2014-03-12', 'changed data receive logic/process dataraw to be more robust. Instantiation the managers on need only.'),
+    ('2014-03-11', 'changed data receive logic to work even for very long records.'),
+    ('2014-02-22', 'added I2C-Handlers for ADC ADS1015 '),
+    ('2014-02-03', 'enable one broadcast/value for multiple adapters'),
+    ('2014-01-24', 'fixed a conversion error from adapter to framework (now always strings)'),
+    ('2014-01-06', 'added WS2801-Adapter, some bug fixes in SPI handling'),
+    #
+    ('2013-12-26', 'added remote connection adapter'),
+    ('2013-12-01', 'configuration file for portMapping in xml'),
+    ('2013-11-16', 'added sighup in order to catch terminal closed.'),
+    ('2013-11-16', 'added code to enforce a singleton running instance')  
+  ]
+
+# never got the right date matching the last entry in changes history.
+# hope this helps   
+version = changes[0][0]
 
 # --------------------------------------------------------------------------------------------
 from array import *
-import server.scratchClientServer
-
-from adapter.adapters import GPIOAdapter
-from adapter.adapters import SPIAdapter
-from adapter.adapters import I2CAdapter
-
-from spi.manager import SPIManager
-from i2c.manager import I2CManager
-
+import json
 import sys
-    
-import configuration
-import errorManager
-#import eventHandler
-import publishSubscribe
-import logging
-import logging.config
 import protocol
 import os
 import os.path
-import helper.abstractQueue
-
-if sys.platform.startswith('linux'):
-    import grp
-
 import re
 import signal
 import socket
@@ -191,6 +220,29 @@ import traceback
 import threading
 import time
 
+import server.scratchClientServer
+
+# from adapter.adapters import GPIOAdapter
+# from adapter.adapters import SPIAdapter
+# from adapter.adapters import I2CAdapter
+
+import spi.manager
+import i2c.manager
+
+    
+import configuration
+import errorManager
+#import eventHandler
+import publishSubscribe
+
+import logging
+import logging.config
+
+import helper.abstractQueue
+
+if sys.platform.startswith('linux'):
+    import grp
+    
 import helper.logging
 import singleton.singletonIPC
 import singleton.singletonPID
@@ -202,13 +254,17 @@ commandlineHelp = """
 
 -c <configfile>
 -config <configfile> Name of config xml-file, default config/config.xml 
-                     There is a lookup strategy used (add xml extension when needed, 
-                     literal, then config/, ../config; then add 'config_' to 
-                     filename and then literal, config/, ../config
+                     There is a lookup strategy used: add xml extension when needed, 
+                     check if file exists literally. Then try to find a matching file 
+                     in configuser dir, next in config dir. Try to add 'config_' to 
+                     filename also. 
 
 -C <configfile>      Name of config xml-file, default config/config.xml 
                      There is NO lookup strategy used, only literal.
-                     
+
+-l <logconfigfile>   Name of a log config file. Supersedes -v, -d setting.
+                     Relative path or absolute file name.
+                          
 -gpioLib             set the gpiolibrary, default 'RPi_GPIO_GPIOManager'
                      deprecated
                      
@@ -218,23 +274,17 @@ commandlineHelp = """
                      used port 42003 (default from 2017-02-14)
 -singletonNONE       no singleton policy applied. For debug only
 
-                     default from 2017-02-14)
-web gui switches
-
--nogui               do not show GUI
--guiRemote           allows remote access to GUI web page, 
-                     default is local access only
-
 debug and test switches
 
 -validate            Validate config and terminate.
 
 -h
 -help                print command line usage and exit
--v                   verbose logging
--d                   debug logging
+-v                   verbose logging (see also -l option)
+-d                   debug logging (see also -l option)
 -license             print license and exit.
 -changes             print changes list  and exit.
+-version             print version and exit.
 
 """
 
@@ -248,7 +298,6 @@ DEFAULT_CONFIGFILENAME = 'config/config.xml'
 DEFAULT_PORTMAPPINGFILENAME = 'config/portMapping.xml'
 
 DEFAULT_GPIOLIB = 'RPi_GPIO_GPIOManager'
-DEFAULT_GUIREMOTE = False
 
 DEFAULT_PIDFILENAME = 'scratchClient.pid'
 
@@ -259,9 +308,13 @@ SOCKET_TIMEOUT = 2
 
 verbose = False
 debug = False
-nogui = False
-guiRemote = DEFAULT_GUIREMOTE
+loggingconfigfile = None
+
 validate = False
+#
+# when set to true, then the connection error message is repeated each 5 minutes or so.
+#
+perpetual_scratch14_connection_error = False
 
 configFileName = DEFAULT_CONFIGFILENAME
 portmappingFileName = DEFAULT_PORTMAPPINGFILENAME
@@ -274,7 +327,7 @@ singletonFlag = DEFAULT_SINGLETON
 pidFileName = DEFAULT_PIDFILENAME
 
 gpl2 = """
- Copyright (C) 2013, 2017  Gerhard Hepp
+ Copyright (C) 2013, 2018  Gerhard Hepp
 
  This program is free software; you can redistribute it and/or modify it under the terms of 
  the GNU General Public License as published by the Free Software Foundation; either version 2 
@@ -289,15 +342,18 @@ gpl2 = """
  MA 02110, USA 
 """
 
-runIt = True
+_runIt = True
 
 import environment        
+# ================================================================================================
+#
+# 
 
-class ScratchSender(threading.Thread):
+class ScratchSender:
     
-    def __init__(self):
-        threading.Thread.__init__(self)
-        self.setName("scratchSender")
+    def __init__(self, handler):
+        self.handler = handler
+        self.name = "scratchSender"
         self._stopEvent = threading.Event()
         self._lock = threading.Lock()
         
@@ -305,7 +361,22 @@ class ScratchSender(threading.Thread):
         #publishSubscribe.Pub.subscribe('scratch.output.command', self.send)
 
     def stop(self):
+        if debug:
+            logger.warn("{n:s}: stop".format(n=self.name) )
         self._stopEvent.set()
+        try:
+            self.thread.join(1.0)
+        except Exception as e:
+            logger.warn("{n:s}: {m:s}".format(n=self.name, m=str(e)) )
+        
+    def start(self):
+        if debug:
+            logger.warn("{n:s}: start".format(n=self.name) )
+
+        self.handler.subscribe(self)
+        self.thread = threading.Thread( target=self.run, name=self.name)
+        self._stopEvent.clear()
+        self.thread.start()
 
     def stopped(self):
         return self._stopEvent.isSet()
@@ -313,16 +384,23 @@ class ScratchSender(threading.Thread):
     def setSocket(self, socket):
         self.scratch_socket = socket
         
-        
     def run(self):
         pass
 
+    
     def sendValue(self, message):
         """send a 'sensor-update'"""
         
         bcast_str = 'sensor-update "' + message['name'] + '" ' +  message['value']
-        if logger.isEnabledFor(logging.INFO):
-            logger.info('ScratchSender, send value: %s' , bcast_str)
+        if sys.version_info.major == 2:
+            if logger.isEnabledFor(logging.INFO):
+                try:
+                    logger.info('ScratchSender, send: {bs:s}'.format(bs= bcast_str.decode('utf-8') ) )
+                except UnicodeEncodeError:
+                    logger.warn("ScratchSender, send sensor-update, name {n:s} value can't be displayed to python2 unicode problems".format(n= message['name']))
+        if sys.version_info.major >= 3:
+            if logger.isEnabledFor(logging.INFO):
+                logger.info('ScratchSender, send: {bs:s}'.format(bs= bcast_str ) )
         
         self.send_scratch(bcast_str)
 
@@ -330,7 +408,7 @@ class ScratchSender(threading.Thread):
         """send a 'broadcast'"""
         bcast_str = 'broadcast "{name:s}"'.format( name= message['name'] )
         if logger.isEnabledFor(logging.INFO):
-            logger.info('ScratchSender, send broadcast: %s', bcast_str)
+            logger.info('ScratchSender, send: {bs:s}'.format(bs= bcast_str) )
         
         self.send_scratch(bcast_str)
 
@@ -373,8 +451,8 @@ class ScratchSender(threading.Thread):
                     while totalsent < len(a):
                         sent = self.scratch_socket.send(a[totalsent:])
                         if sent == 0:
-                            scratchClient.event_disconnect()
-                            # TODO: ordentlich alles abbrechen
+                            self.handler.event_disconnect()
+                            # 
                             return
                         totalsent += sent
                         
@@ -398,18 +476,35 @@ class ScratchSender(threading.Thread):
                     pass
         finally:
             self._lock.release()
+# ================================================================================================
+#
+# 
 
-class ScratchListener(threading.Thread):
+class ScratchListener:
     
-    def __init__(self, socket):
-        threading.Thread.__init__(self)
-        self.setName("scratchListener")
-        self.scratch_socket = socket
+    def __init__(self, handler):
+        self.handler = handler
+        self.name ="scratchListener"
         self._stopEvent = threading.Event()
         
-        
+    def setSocket(self, socket):  
+        self.scratch_socket = socket
+    
     def stop(self):
+        if debug:
+            logger.warn("{n:s}: stop".format(n=self.name) )
         self._stopEvent.set()
+        try:
+            self.thread.join(1.0)
+        except Exception as e:
+            logger.warn("{n:s}: {m:s}".format(n=self.name, m=str(e)) )
+            
+    def start(self):
+        if debug:
+            logger.warn("{n:s}: start".format(n=self.name) )
+        self._stopEvent.clear()
+        self.thread = threading.Thread( target=self.run, name="scratchListener")
+        self.thread.start()
 
     def stopped(self):
         return self._stopEvent.isSet()
@@ -418,7 +513,6 @@ class ScratchListener(threading.Thread):
         """main listening routine to remote sensor protocol"""
         #print("ScratchListener thread started")
         logger.debug("scratchListener thread started")
-        global scratchClient
         
         if sys.version_info.major == 2:
             # 
@@ -453,7 +547,7 @@ class ScratchListener(threading.Thread):
                     # no data arriving means: connection closed
                     #
                     if len(chunk) == 0:
-                        scratchClient.event_disconnect()
+                        self.handler.event_disconnect()
                         break
     
                     data += chunk
@@ -519,7 +613,7 @@ class ScratchListener(threading.Thread):
                     logger.warn(e)
                     if logger.isEnabledFor(logging.DEBUG):
                         traceback.print_exc(file=sys.stdout)
-                    scratchClient.event_disconnect()
+                    self.handler.event_disconnect()
                     self.stop()
                     continue
                 
@@ -556,7 +650,7 @@ class ScratchListener(threading.Thread):
                     # no data arriving means: connection closed
                     #
                     if len(chunk) == 0:
-                        scratchClient.event_disconnect()
+                        self.handler.event_disconnect()
                         break
     
                     data += chunk
@@ -623,9 +717,9 @@ class ScratchListener(threading.Thread):
                     continue
                 except Exception as e:
                     logger.warn(e)
-                    if logger.isEnabledFor(logging.DEBUG):
-                        traceback.print_exc(file=sys.stdout)
-                    scratchClient.event_disconnect()
+                    if logger.isEnabledFor(logging.INFO):
+                        traceback.print_exc()
+                    self.handler.event_disconnect()
                     self.stop()
                     continue
 
@@ -673,17 +767,18 @@ class ScratchListener(threading.Thread):
             # self.commandResolver.resolveValue(nv[0], nv[1])            
         else:
             logger.warn("unknown command in received data " + dataraw )
+# ================================================================================================
+#
+# 
     
 class ThreadManager:
     """the threads are collected here in order to have one point to terminate each of them"""
-    threads = None
-    socketThreads = None
     
     def __init__(self):
         self.threads = []
         self.socketThreads = []
         
-    def append(self, t):
+    def append_thread(self, t):
         self.threads.append(t)
             
     def append_socket(self, t):
@@ -709,62 +804,57 @@ class ThreadManager:
                 logger.warn("cleanup_socket: wait join %s: %s", thread.name, str(e))
 
         
-    def cleanup_threads(self):
+    def cleanup_thread(self):
         
-        logger.debug("ThreadManager, cleanup_threads")
+        logger.warn("ThreadManager, cleanup_thread")
         
         for thread in self.threads:
-            logger.debug("cleanup_threads: stop thread %s", str(thread))
+            logger.debug("cleanup_threads: stop thread '%s'", str(thread))
             thread.stop()
     
         for thread in self.threads:
-            logger.debug("cleanup_threads: wait join %s", thread)
+            logger.debug("cleanup_threads: wait join '%s'", thread)
             try:
                 thread.join(1)
                 if thread.isAlive():
-                    logger.debug("cleanup_threads: wait join %s timeout",  thread.name) 
+                    logger.debug("cleanup_threads: wait join '%s' timeout",  thread.name) 
                 else:
-                    logger.debug("cleanup_threads: wait join %s ok",  thread.name)
+                    logger.debug("cleanup_threads: wait join '%s' ok",  thread.name)
             except Exception as e:
-                logger.warn("cleanup_threads: wait join %s: %s", thread.name, str(e))
+                logger.warn("cleanup_threads: wait join '%s': %s", thread.name, str(e))
             
 
-threadManager = ThreadManager()
+## threadManager = ThreadManager()
+# ================================================================================================
+#
+# 
 
-class ScratchClient(threading.Thread):
+class ScratchClientApplication:
+    """Manage Application, receive start/stop from handlers for scratch14 and scratch2. Start/Stop adapters.
+       And handle Configuration. last not least"""
     
-    config = None
-    gui = None
-    gpioManager = None
-    spiManager = None
-    i2cManager = None
-        
-    STATE_START = 0
-    STATE_CONNECTED = 1
-    STATE_DISCONNECTED = 2
-    
-    state = STATE_DISCONNECTED
-    
-    myQueue = None
-    managers = None
-    
-    def __init__(self):   
-        # import pdb; pdb.set_trace() 
-        #global forceSimulation 
-        threading.Thread.__init__(self, name="scratchClient")
+    SHUTDOWN = 'shutdown'
+    STATE_CONNECTED = 'connected'
+    STATE_DISCONNECTED = 'disconnected'
+       
+    def __init__(self, eventQueue):
+        self.name = "ScratchClientApplication"
+        self.thread = threading.Thread( target = self.run, name="ScratchClientApplication")
         self._stopEvent = threading.Event()
 
-        self.myQueue = helper.abstractQueue.AbstractQueue()
-
-        self.listener = None
-        self.sender = ScratchSender()
+        self.eventQueue = eventQueue
+        self.state = None
+        
+        self.handlers = []
+        
+        #TODO self.listener = None
+        #TODO self.sender = ScratchSender()
         #self.commandResolver = CommandResolver()    
         self.gpioManager = None
         self.managers = []   
-        if nogui == False:
-            self.gui = server.scratchClientServer.ServerThread( parent = self, remote = guiRemote )
-            
-            environment.append('gui',  self.gui )
+        
+        self.gui = server.scratchClientServer.ServerThread( parent = self )
+        environment.append('gui',  self.gui )
        
         # read config files
         configuration.allEverGpios = configuration.GPIORegistry(modulePathHandler.getScratchClientBaseRelativePath(portmappingFileName) )   
@@ -794,9 +884,8 @@ class ScratchClient(threading.Thread):
             self.shutdown()
             return
         # 
-        if nogui == False:
-            self.gui.start()
-            threadManager.append(self.gui)
+        self.gui.start()
+        #threadManager.append_thread(self.gui)
         # -----------------
         #
         # Instantiate the managers for the various hardware resources
@@ -820,8 +909,6 @@ class ScratchClient(threading.Thread):
             
             if adapterMethods.hasMethod('setDMAManager'):
                 needDMA = True
-            
-         
         
         if needGPIO:
             self.gpioManager = configuration.GPIOManager( lib=gpioLib )
@@ -829,11 +916,11 @@ class ScratchClient(threading.Thread):
             # forceSimulation = self.gpioManager.getSimulation()
     
         if needSPI:
-            self.spiManager = SPIManager()
+            self.spiManager = spi.manager.SPIManager()
             self.managers.append(self.spiManager)
         
         if needI2C:
-            self.i2cManager = I2CManager()
+            self.i2cManager = i2c.manager.I2CManager()
             self.managers.append(self.i2cManager)
 
         if needDMA:
@@ -870,16 +957,12 @@ class ScratchClient(threading.Thread):
             
         # -----------------------------------------------
         
-        threadManager.append(self)
-              
-        self.config.configureCommandResolver(self.sender)
-
-        if debug:
-            publishSubscribe.Pub.report()
-            
-
         # removed SIGKILL     
-        signals = ("SIGINT", "SIGTERM", "SIGHUP")    
+        signals = (
+            "SIGINT", 
+            "SIGTERM", 
+            # "SIGHUP"
+                   )    
         for sig in signals:
             try:
                 # on windows, not all signals available
@@ -891,12 +974,206 @@ class ScratchClient(threading.Thread):
             except RuntimeError as e:
                 logger.debug('RuntimeError: setting signals {signal:s}: {exception:s} '.format(signal=sig, exception=str(e) ) )
                 pass
-        self.start()
-        self.event_connect()
-
+            
+    def setActive(self, name, state):
+        for adapter in self.config.getAdapters(): 
+            adapter.setActive(state)
+            
+    def registerHandler (self, aHandler):
+        self.handlers.append( aHandler)
+        
+    def start(self):
+        if debug:
+            logger.warn("{n:s}: start".format(n=self.name) )
+        self.thread.start()
+        for handler in self.handlers:
+            handler.start()
+        
+    def getName(self):
+        return self.name
+    
+    def subscribe(self, sender):
+        self.config.configureCommandResolver( sender )
+        
+    def unsubscribe(self, sender):
+        self.config.unconfigureCommandResolver( sender )
+        
     def stop(self):
         self._stopEvent.set()
 
+    def stopped(self):
+        return self._stopEvent.isSet()
+        
+    def run(self):
+        logger.debug("%s thread started", self.getName() )
+
+        while not(self.stopped()):
+            s = ''
+            try:
+                s = self.eventQueue.get(True, 0.1)
+            except helper.abstractQueue.AbstractQueue.Empty:
+                continue
+            
+            if s == 'disconnect':
+                #print("disconnect received")
+                self._disconnect()
+            if s == 'connect':
+                #print("connect received")
+                self._connect()
+            if s == ScratchClientApplication.SHUTDOWN:
+                self.shutdown()
+                
+        logger.warn("%s thread terminated", self.getName() )
+        
+    def event_disconnect(self):
+        self.eventQueue.put('disconnect')
+    
+    def event_connect(self):
+        #print("event connect")
+        self.eventQueue.put('connect')
+        
+    def _disconnect(self):    
+        logger.info("{n:s}: event_disconnect".format(n=self.name))
+        if self.state == self.STATE_CONNECTED:
+            if verbose:
+                print ("Scratch disconnected")
+
+            logger.info("{n:s}: set adapters inactive".format(n=self.name))
+            for module in self.config.getAdapters():
+                module.setActive(False)
+            # self.gpioManager.setActive(False)
+            # threadManager.cleanup_socket()
+            self.state = self.STATE_DISCONNECTED
+            self.event_connect()
+        else:
+            if debug:
+                print(self.name, "not in a state to disconnect", self.state)
+            logger.info("{n:s}: set adapters inactive".format(n=self.name))
+            for module in self.config.getAdapters():
+                module.setActive(False)
+                
+                
+        self.state = self.STATE_DISCONNECTED
+                    
+    def _connect(self):
+        logger.info("event_connect")
+        
+        if self.state == self.STATE_DISCONNECTED:
+            #
+            for module in self.config.getAdapters():
+                module.setActive(True)
+            #print("listener starting")
+             
+            if logger.isEnabledFor(logging.INFO):
+                logger.info ("Running....")
+            # self.sender.start()
+        else:
+            if debug:
+                print(self.name, "not in a state to connect", self.state)
+            for module in self.config.getAdapters():
+                module.setActive(True)
+         
+        self.state = self.STATE_CONNECTED
+
+    def shutdown(self):
+        logger.warn("shutdown sequence started")
+
+        for adapter in self.config.getAdapters():
+            #
+            # kindly ask the adapters to terminate
+            #
+            if adapter.isActive():
+                adapter.setActive(False)
+            #    
+            # stop those adapters not bound to active/inactive    
+            # TODO: let the adapters register automatically on thread manager.
+            adapter.stop()
+
+        for m in self.managers:
+            m.setActive(False)
+            
+        for handler in self.handlers:
+            handler.stop()
+        logger.warn("shutdown adapters, managers, handlers stopped")
+        
+        self.gui.stop()
+        self.stop()
+        #
+        # the own thread is included in 'cleanup_threads
+        # self.stop()
+        global _runIt
+        _runIt = False
+       
+    def sigHandler(self, signum, frame):
+        logger.warn("received signal {sig:s}".format(sig= str(signum)))
+        self.eventQueue.put( ScratchClientApplication.SHUTDOWN)
+    
+class ClientHandler:
+    def start(self):
+        raise Exception("must be overridden")
+        
+    def getName(self):
+        raise Exception("must be overridden")
+    
+    def subscribe(self, sender):
+        self.manager.subscribe( sender)
+        
+    def unsubscribe(self, sender):
+        self.manager.unsubscribe( sender)
+            
+    def stop(self):
+        raise Exception("must be overridden")
+
+    def event_disconnect(self):
+        raise Exception("must be overridden")
+    
+    def event_connect(self):
+        raise Exception("must be overridden")
+ 
+class ScratchClientHandler( ClientHandler):
+    """manage connection to scratch_1_4"""
+        
+    STATE_START = 0
+    STATE_CONNECTED = 1
+    STATE_DISCONNECTED = 2
+    
+    state = STATE_DISCONNECTED
+    
+    myQueue = None
+    managers = None
+    
+    def __init__(self, manager):  
+        self.name="scratchClientHandler"
+        self.manager = manager 
+        # import pdb; pdb.set_trace() 
+        #global forceSimulation 
+        self.thread = threading.Thread( target=self.run, name="scratchClientHandler")
+        self._stopEvent = threading.Event()
+
+        self.myQueue = helper.abstractQueue.AbstractQueue()
+
+        self.listener = ScratchListener(self)
+        self.sender = ScratchSender(self)
+        #self.commandResolver = CommandResolver()    
+
+    def start(self):
+        if debug:
+            logger.warn("{n:s}: start".format(n=self.name) )
+        self.thread.start()
+        self.myQueue.put('connect')
+        
+    def getName(self):
+        return self.name
+    
+    def subscribe(self, sender):
+        self.manager.subscribe( sender)
+            
+    def stop(self):
+        self._stopEvent.set()
+
+        self.listener.stop()
+        self.sender.stop()
+        
     def stopped(self):
         return self._stopEvent.isSet()
         
@@ -915,7 +1192,10 @@ class ScratchClient(threading.Thread):
             if s == 'connect':
                 #print("connect received")
                 self._connect()
-        logger.debug("%s thread terminated", self.getName() )
+            if s == 'shutdown':
+                self.shutdown()
+                
+        logger.warn("%s thread terminated", self.getName() )
         
     def event_disconnect(self):
         self.myQueue.put('disconnect')
@@ -931,10 +1211,13 @@ class ScratchClient(threading.Thread):
                 print ("Scratch disconnected")
 
             logger.info("set adapters inactive")
-            for module in self.config.getAdapters():
-                module.setActive(False)
+            self.manager.event_disconnect()
+            
+            self.listener.stop()
+            self.sender.stop()
+            
             # self.gpioManager.setActive(False)
-            threadManager.cleanup_socket()
+            #threadManager.cleanup_socket()
             self.state = self.STATE_DISCONNECTED
             self.event_connect()
             
@@ -954,24 +1237,27 @@ class ScratchClient(threading.Thread):
             if self.stopped():
                 return
             
-            with helper.logging.LoggingContext(logger, level=logging.DEBUG):
+            with helper.logging.LoggingContext(logger, level=logging.INFO):
+                #TODO setting the log level does not work (with json config?)
+                # so set level to warn
                 logger.info('Connected to Scratch !')
             
             the_socket.settimeout(SOCKET_TIMEOUT)
 
-            listener = ScratchListener(the_socket)
+            self.listener.setSocket(the_socket)
             self.sender.setSocket(the_socket)
             
-            threadManager.append_socket(listener)
+            # threadManager.append_socket(self.listener)
             #threadManager.append_socket(sender)
             #
-            for module in self.config.getAdapters():
-                module.setActive(True)
+            self.manager.setActive(self.name, True)
             #print("listener starting")
             
             if logger.isEnabledFor(logging.INFO):
                 logger.info ("Running....")
-            listener.start()
+                
+            self.sender.start()
+            self.listener.start()
             # self.sender.start()
          
             self.state = self.STATE_CONNECTED
@@ -995,51 +1281,27 @@ class ScratchClient(threading.Thread):
             except socket.error:
                 scratch_sock = None
                 if count == 0:
-                    logger.warn( "There was an error connecting to Scratch!" )
-                    # in german for the kids in school:
-                    logger.warn( "  Unterstuetzung fuer Netzwerksensoren einschalten!" )
-                    logger.warn( "  Activate remote sensor connections!" )
-                    logger.info( "  No Mesh session at host: %s, port: %s" , host, port) 
+                    with helper.logging.LoggingContext(logger, level=logging.INFO):
+                        logger.info( "There was an error connecting to Scratch 1.4 !" )
+                        # in german for the kids in school:
+                        logger.info( "  Unterstuetzung fuer Netzwerksensoren einschalten!" )
+                        logger.info( "  Activate remote sensor connections!" )
+                        logger.info( "  No Mesh session at host: %s, port: %s" , host, port) 
                 
                 for _ in range(0,100):
                     if self.stopped():
                         break
-                    time.sleep(0.05)
+                    time.sleep(0.075)
                 
                 count += 1
-                count %= 40
+                # when count is reset, the message is repeated
+                if perpetual_scratch14_connection_error:
+                    count %= 40
         return scratch_sock
-
-    def shutdown(self):
-        # self.runIt = False
-
-        for adapter in self.config.getAdapters():
-            #
-            # kindly ask the adapters to terminate
-            #
-            if adapter.isActive():
-                adapter.setActive(False)
-            #    
-            # stop those adapters not bound to active/inactive    
-            # TODO: let the adapters register automatically on thread manager.
-            adapter.stop()
-
-        for m in self.managers:
-            m.setActive(False)
-            
-        threadManager.cleanup_socket()
-        threadManager.cleanup_threads()
-        #
-        # the own thread is included in 'cleanup_threads
-        # self.stop()
-
-        global runIt
-        runIt = False
-       
-    def sigHandler(self, signum, frame):
-        logger.warn ("received signal %s", str(signum))
-        self.shutdown()
-
+        
+# ================================================================================================
+#
+# 
 class ModulePathHandler:
     modulePath = None
     moduleDir = None
@@ -1079,9 +1341,11 @@ class ModulePathHandler:
         return os.path.normpath( 
                                 os.path.join( self.getScratchClientBaseDir(), relPath )
                                 )
+# ================================================================================================
+#
+# 
         
 modulePathHandler = ModulePathHandler()
-scratchClient = None
 logger = None
     
 if __name__ == '__main__':
@@ -1108,7 +1372,11 @@ if __name__ == '__main__':
                 configLookupStrategy = False
                 configFileName = sys.argv[i+1]
                 i += 1
-            
+                
+            elif ( '-l' == sys.argv[i] ):
+                loggingconfigfile = sys.argv[i+1]
+                i += 1
+                  
             elif '-gpioLib' == sys.argv[i]:
                 print('gpioLib is deprecated, ignored')
                 # gpioLib = sys.argv[i+1]
@@ -1119,12 +1387,6 @@ if __name__ == '__main__':
             
             elif '-d' == sys.argv[i]:
                 debug = True
-            
-            elif '-nogui' == sys.argv[i]:
-                nogui = True
-            
-            elif '-guiRemote' == sys.argv[i]:
-                guiRemote = True
             
             elif '-help' == sys.argv[i]:
                 print(commandlineHelp)
@@ -1139,7 +1401,10 @@ if __name__ == '__main__':
             
             elif '-changes' == sys.argv[i]:
                 for x in changes:
-                    print(x)
+                    print(x[0] + " " + x[1])
+                sys.exit(1)
+            elif '-version' == sys.argv[i]:
+                print('scratchClient ' + version)
                 sys.exit(1)
 
             elif '-validate' == sys.argv[i]:
@@ -1152,7 +1417,7 @@ if __name__ == '__main__':
             elif '-singletonNONE' == sys.argv[i]:
                 singletonFlag = 'NONE' 
                 
-                
+              
             else:
                 print("Command line error, unknown switch", sys.argv[i])    
             i += 1
@@ -1161,23 +1426,63 @@ if __name__ == '__main__':
         print(commandlineHelp)
         sys.exit(1)
     
-    lFile = ''    
-    if debug == True:
-        lFile = 'logging/logging_debug.conf'
+    # ------ Logging configuration -----------
+    lcf = False
+    if loggingconfigfile == None:
+        lcf = False
+    elif os.path.isfile ( loggingconfigfile):
+        lcf = True
+    else:
+        lcf = False
+    
+    lFile = '' 
+    if lcf :
+        lFile = loggingconfigfile   
+    elif debug == True:
+        lFile = 'logging/logging_debug.json'
     elif verbose == True:
-        lFile = 'logging/logging_verbose.conf'
+        lFile = 'logging/logging_verbose.json'
     else:        
-        lFile = 'logging/logging.conf'
+        lFile = 'logging/logging.json'
     
-
     # print(modulePathHandler.getScratchClientBaseRelativePath(lFile))
-            
-    logging.config.fileConfig( modulePathHandler.getScratchClientBaseRelativePath(lFile) )
+    if os.path.isfile(lFile ):
+        llFile = lFile
+    else:
+        llFile = modulePathHandler.getScratchClientBaseRelativePath(lFile)
     
+    try:     
+        # read a json file and strip off comments 
+        # as comments are line-related, read file line by line
+        jsonText = ''
+        
+        fi = open(llFile)
+        while True:
+            line = fi.readline()
+            if '' == line:
+                break
+            line = line.rstrip('\n')
+            line = re.sub(r'^[ \t]*//.*$', '', line)
+            line = re.sub(r'^[ \t]*#.*$', '', line)
+            jsonText += line + '\n'
+        fi.close()
+        
+        logging_dict = json.loads(jsonText)
+        logging.config.dictConfig(logging_dict )
+        
+        jsonText = None
+        line = None
+        
+    except Exception as e:
+        print("Could not load log config file ", llFile)
+        print(e)
+        logging.basicConfig()
+    # ----------------------------------------
+        
     logger = logging.getLogger(__name__)
     
     if sys.version_info.major == 2:
-        with helper.logging.LoggingContext(logger, level=logging.DEBUG):
+        with helper.logging.LoggingContext(logger, level=logging.INFO):
             logger.info('Consider using python3 to execute this program !')
 
     logging.debug("create ScratchClient")
@@ -1193,56 +1498,57 @@ if __name__ == '__main__':
         #
         if not (cFile.endswith( '.xml' )):
             cFile += '.xml'
-            logger.debug("config file: add xml extension")
+            logger.debug("LookupStrategy config file: add xml extension")
         #
         # take it literally
         #
         if not( cFileFound):
-            pathConfigFile =   modulePathHandler.getScratchClientBaseRelativePath( cFile )
+            pathConfigFile = modulePathHandler.getScratchClientBaseRelativePath( cFile )
             cFileFound = os.path.isfile( pathConfigFile )
-        #
-        # look in config/
-        #
-        if not( cFileFound):
-            pathConfigFile =  modulePathHandler.getScratchClientBaseRelativePath( 'config/' + cFile )
-            cFileFound = os.path.isfile( pathConfigFile )
-            if cFileFound:
-                logger.info("config file found: "+ pathConfigFile)
-        
-        #
-        # look in ../config/
-        #
-        if not( cFileFound):
-            pathConfigFile =  modulePathHandler.getScratchClientBaseRelativePath( '../config/' + cFile )
-            cFileFound = os.path.isfile( pathConfigFile )
-            if cFileFound:
-                logger.info("config file found: "+ pathConfigFile)
-        #
-        # check if a 'config_'-prefix is missing. Do this only when no path is given.
-        #
-        if cFile.find('/') < 0:
-            if not( configFileName.startswith('config_')):
-     
-                if not( cFileFound):
-                    pathConfigFile = modulePathHandler.getScratchClientBaseRelativePath('config_' + cFile)
-                    cFileFound = os.path.isfile( pathConfigFile ) 
-                    if cFileFound:
-                        logger.debug("config file: add prefix 'config_'")   
-                        logger.info("config file found: "+ pathConfigFile)
-                    
-                if not( cFileFound):
-                    pathConfigFile =  modulePathHandler.getScratchClientBaseRelativePath('config/' + 'config_' + cFile )
-                    cFileFound = os.path.isfile( pathConfigFile )
-                    if cFileFound:
-                        logger.debug("config file: add prefix 'config_'") 
-                        logger.info("config file found: "+ pathConfigFile)
-                    
-                if not( cFileFound):
-                    pathConfigFile =  modulePathHandler.getScratchClientBaseRelativePath('../config/' + 'config_' + cFile)
-                    cFileFound = os.path.isfile( pathConfigFile )
-                    if cFileFound:
-                        logger.debug("config file: add prefix 'config_'") 
-                        logger.info("config file found: "+ pathConfigFile)
+
+        for preferredDir in [ 'configuser/', 'config/']:
+            #
+            #
+            if not( cFileFound):
+                pathConfigFile =  modulePathHandler.getScratchClientBaseRelativePath( preferredDir + cFile )
+                cFileFound = os.path.isfile( pathConfigFile )
+                if cFileFound:
+                    logger.info("LookupStrategy config file found: "+ pathConfigFile)
+            
+            #
+            # look in ../ dir
+            #
+            if not( cFileFound):
+                pathConfigFile =  modulePathHandler.getScratchClientBaseRelativePath( '../' + preferredDir + cFile )
+                cFileFound = os.path.isfile( pathConfigFile )
+                if cFileFound:
+                    logger.info("LookupStrategy config file found: "+ pathConfigFile)
+            #
+            # check if a 'config_'-prefix is missing. Do this only when no path is given.
+            #
+            if cFile.find('/') < 0:
+                if not( configFileName.startswith('config_')):
+         
+                    if not( cFileFound):
+                        pathConfigFile = modulePathHandler.getScratchClientBaseRelativePath('config_' + cFile)
+                        cFileFound = os.path.isfile( pathConfigFile ) 
+                        if cFileFound:
+                            logger.debug("LookupStrategy config file: add prefix 'config_'")   
+                            logger.info("LookupStrategy config file found: "+ pathConfigFile)
+                        
+                    if not( cFileFound):
+                        pathConfigFile =  modulePathHandler.getScratchClientBaseRelativePath( preferredDir + 'config_' + cFile )
+                        cFileFound = os.path.isfile( pathConfigFile )
+                        if cFileFound:
+                            logger.debug("LookupStrategy config file: add prefix 'config_'") 
+                            logger.info("LookupStrategy config file found: "+ pathConfigFile)
+                        
+                    if not( cFileFound):
+                        pathConfigFile =  modulePathHandler.getScratchClientBaseRelativePath('../' + preferredDir + 'config_' + cFile)
+                        cFileFound = os.path.isfile( pathConfigFile )
+                        if cFileFound:
+                            logger.debug("LookupStrategyconfig file: add prefix 'config_'") 
+                            logger.info("LookupStrategyconfig file found: "+ pathConfigFile)
     
         #
         # if not found, go back to what was defined on command line.
@@ -1262,14 +1568,27 @@ if __name__ == '__main__':
         
     singletonInstance.start()
     
+    logging.info("start scratch client for scratch1.4 and scratchX, {v:s}".format(v=version) )
     logger.debug("sys.path    = {p:s}".format(p=str(sys.path)) )
-    # print('start scratch client')
+
     
-    scratchClient = ScratchClient()
-    singletonInstance.registerShutdown( scratchClient)
+    eventQueue_ScratchClientApplication = helper.abstractQueue.AbstractQueue()
     
-    nWTR = 0
-    while runIt:
+    scratchClientApplication  = ScratchClientApplication(eventQueue_ScratchClientApplication)
+    
+    scratchClientHandler = ScratchClientHandler( scratchClientApplication )
+    scratchClientApplication.registerHandler( scratchClientHandler )
+    
+    scratchXHandler = server.scratchClientServer.ScratchXHandler( scratchClientApplication )
+    scratchClientApplication.registerHandler( scratchXHandler )
+
+    scratchClientApplication.start()
+
+    
+    singletonInstance.registerShutdown( scratchClientApplication)
+    
+    nWTR = 1
+    while _runIt:
         if nWTR % 20000 == 0:
             logger.debug("scratchClient still running")
         time.sleep(0.1)
@@ -1280,15 +1599,13 @@ if __name__ == '__main__':
     # MainThread counts as 1, so list only if activeCount > 1
     # 
     cnt = 0    
-    while cnt < 2 and threading.activeCount() > 1:
+    while (cnt < 2 ) and threading.activeCount() > 1:
         cnt += 1
         for t in threading.enumerate():
-            print("active threads ", t)
-        print("")
-        time.sleep(3)
-        
+            logger.warning("active threads: " + t.name )
+        time.sleep(2)
     
     print("scratchClient terminated")
     logger.debug("scratchClient terminated")
     
-    quit()
+    os._exit(0)

@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+% if debug:
+<!-- htdocs/template/scratch2/documentation/scratchClient.html start -->
+% endif
+
+    <%include file="/template/header.html" />
+    
+    <body>
+        <h2>ScratchClient bridge to scratch2</h2>
+        <p>
+               This documentation is applicable to connect the raspbery pi standalone version of scratch2 with scratchClient.
+        </p>
+        <p>
+            Connecting scratch2 to hardware can be done in two different ways.<br/>
+            Option 2 is the recommended procedure.
+            
+        </p>
+        <h3>Option 1: File Menu</h3>
+            <p>
+            Start scratchClient with the configuration xml file for your hardware.
+            </p>
+            <p>
+            Start scratch2, available from the desktop menu 'programming/scratch2'.
+            </p>
+            <p>
+            Press shift key and the file menu. The file menu now displays more options.
+            </p>
+            
+            <img src="/images/scratch2/documentation/step_10.png"/>
+            <p>
+            Select 'Import experimental extension'<br/>
+                   
+     
+            </p><img src="/images/scratch2/documentation/step_20.png"/>
+            <p>
+                Paste the following url into the form  http://localhost:8080/scratchx/js/extension.js<br/>
+                Use ctrl-v to insert in to the dialog.
+            </p>
+            <p>
+                Check in 'more blocks' that the scratchClient connection is up and running. 
+                <img src="/images/scratch2/documentation/step_30.png"/>
+            </p>
+        
+        <h3>Option 2: ScratchClient Extension </h3>
+
+            <p>Install the scratch2 extension for scratchClient. This install step needs to be done only once.</p>
+            
+            <pre>cd ~/scratchClient/tools/scratch2connection
+sudo python3 install.py
+            </pre>
+            <p>
+            Start scratchClient with the configuration xml file for your hardware.
+            </p>
+            <p>
+            Start scratch2, available from the desktop menu 'programming/scratch2'.
+            </p>
+            <p>
+            In 'more blocks'
+            </p>
+            
+            <img src="/images/scratch2/documentation/step_110.png"/>
+            <p>
+            Select 'Add an extension.'<br/>
+                   
+     
+            </p>
+            
+            <img src="/images/scratch2/documentation/step_120.png"/>
+            <p>
+                Be sure that scratchClient is running when opening the connection.
+            </p>
+            <p>You get a block 'Load scratchClient blocks' which loads the extension.</p>
+            <img src="/images/scratch2/documentation/step_210.png"/>
+            <p>There are always some more options, and you can select now to use 'workshop mode' or 'verbose mode'. Write the small script as shown in the script area of above image. At green flag, the extension is loaded. Start all other scripts in your program then with START-event.
+            </p>
+            <p>Workshop mode gives you four blocks and inside each block you can select the name of variable or event. This mode should be used when you often redefine your adapters.</p>
+            
+            <img src="/images/scratch2/documentation/step_225.png"/>
+            <p>The 'undef' names are needed for technical reasons and should not be used.</p>
+            <p>Verbose mode gives you one block per variable send or receive and for each event send or receive. This is the recommended mode when you have a well defined adapter structure in scratchClient.
+            </p>
+            <img src="/images/scratch2/documentation/step_220.png"/></p>
+           
+              
+             
+            <p>
+                Check in 'more blocks' that the scratchClient connection is up and running. 
+                You should see a green dot on the right side of the extension.
+            </p>
+            <p>The loader block is a modified source from https://megjlow.github.io/extensionloader.js
+            </p>
+             
+    <%include file="/template/footer.html" />
+    
+    </body>
+</html>
+
+% if debug:
+<!-- htdocs/template/scratch2/documentation/scratchClient.html end -->
+% endif

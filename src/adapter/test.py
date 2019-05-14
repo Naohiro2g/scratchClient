@@ -8,7 +8,7 @@ import sys
 import logging
 logger = logging.getLogger(__name__)
 
-debug = True
+debug = False
 
 class TestAdapter( adapter.adapters.Adapter):
     
@@ -38,7 +38,7 @@ class TestAdapter( adapter.adapters.Adapter):
             print("run in test Adapter")
         _del = float(self.parameters['poll.interval'])
         
-        strings = ['apfel', 'apfeläöü', 'äöü' ]
+        strings = ['apfel', 'apfel辰旦端', '辰旦端' ]
         floats = [18.8, 18.9, 19.000, 19.123, 19.2]
         
         i = 0
@@ -71,6 +71,7 @@ class TestAdapter( adapter.adapters.Adapter):
 
             i += 1
             i = i % 1024 
+            
     def low(self):
         if debug:
             print("Adapter, low")
@@ -81,7 +82,7 @@ class TestAdapter( adapter.adapters.Adapter):
 
     def inValue(self, value):
         if debug:
-            print("Adapter, inValue", value )
+            logger.debug("{n:s}: Adapter, inValue {v:s}".format(n=self.name,  v= value ))
         self.iValue(value)
         
     def adcValue(self, value):
@@ -102,7 +103,7 @@ class TestAdapter( adapter.adapters.Adapter):
     def sValue(self, value):
         if debug:
             print("Adapter, sValue", value )
-        self.sendValue('"' + value + '"')
+        self.sendValue( value )
     
     def fValue(self, value):
         if debug:
@@ -116,7 +117,7 @@ class TestAdapter( adapter.adapters.Adapter):
 
     def event(self):
         """output from adapter to scratch."""
-        logger.info("{name:s}: event".format(name=self.name))
+        logger.debug("{name:s}: event".format(name=self.name))
         self.send()
 
 class TestPingPongAdapter(adapter.adapters.Adapter):

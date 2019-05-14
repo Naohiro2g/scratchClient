@@ -19,6 +19,9 @@
     This program is a remote control of port pins, pwm, analog from serial line.
     Designed for Arduino UNO or Nano.
 
+    version 2018-02-25 remove some conversions which result in warnings.
+    version 2018-01-28 Bugfix 0xff eeprom code.
+    version 2017-06-20 when id code is 0xff, then return null bytes. This handles uninitialized eeprom..
     version 2017-03-04 remove redundant commands.
     version 2017-02-27 added counter function. Refactoring of command parser, sending of values.
     version 2017-02-18 small comment changes, added 'empty' ident set command.
@@ -58,7 +61,7 @@
 #define HELP_COMPLETE
 // ----------------------------------------------------------------
 
-char version[] = "arduinoUno, version 2017-03-27"
+char version[] = "arduinoUno, version 2018-02-25"
                  // CUSTOM_VERSION_START
                  ""
                  // CUSTOM_VERSION_END
@@ -137,13 +140,13 @@ uint32_t debug = 0L;
 #define N_ID 16
 
 // add one char for terminating zero '\0'
-char id[N_ID + 1];
+uint8_t id[N_ID + 1];
 
 // -------------------------------------------
 //  EEPROM storage
 typedef struct
 {
-  char id[N_ID + 1];
+  uint8_t _id[N_ID + 1];
 
 } EEPROM_STRUCTURE;
 
@@ -153,17 +156,25 @@ class Persist {
   public:
     Persist() {}  //constructor
 
-    void writeId(char * id) {
+    void writeId(uint8_t * id) {
       for ( uint8_t i = 0; i < N_ID + 1; i ++ ) {
-        EEPROM.write(  offsetof( EEPROM_STRUCTURE, id) +  i, id[i]);
+        EEPROM.write(  offsetof( EEPROM_STRUCTURE, _id) +  i, id[i]);
       }
     }
-    char readId ( char * id) {
-
+    
+    void readId ( uint8_t * id) {
+      for ( uint8_t i = 0; i < N_ID + 1; i ++ )
+      {
+        id[i] = '\0';
+      }
       for ( uint8_t i = 0; i < N_ID; i ++ )
       {
-        id[i] = 0;
-        id[i] = EEPROM.read( offsetof( EEPROM_STRUCTURE, id) + i );
+        id[i] = EEPROM.read( offsetof( EEPROM_STRUCTURE, _id) + i );
+        //
+        // on uninitialized eeprom data return nothing
+        //
+        if ( ( 0xff & id[i] ) == 0xff )
+          id[i] = '\0';
       }
     }
 };
@@ -197,8 +208,8 @@ uint16_t aval = 0;
 
 #define N_LASTRESULT 32
 int lastResult[N_LASTRESULT];
-unsigned int lastAnalogAnalogResult[N_LASTRESULT];
-unsigned int lastAnalogDigitalResult[N_LASTRESULT];
+uint16_t lastAnalogAnalogResult[N_LASTRESULT];
+uint8_t lastAnalogDigitalResult[N_LASTRESULT];
 
 uint32_t counter_cnt_prev [N_LASTRESULT];
 uint32_t counter_cnt [N_LASTRESULT];
@@ -214,7 +225,7 @@ void getEEPROM() {
   eeprom.readId( id);
 
   Serial.print( F("ident:") );
-  Serial.println(id);
+  Serial.println((char*) id);
 }
 
 // -------------------------------------------------
@@ -837,7 +848,7 @@ void handleInput(int port, int value) {
     lastResult[port] = value;
   }
 }
-void handleAnalogDigitalInput(int port, int value) {
+void handleAnalogDigitalInput(int port, uint8_t value) {
 
   if ( value != lastAnalogDigitalResult[port] ) {
     Serial.print( F("ai") );
@@ -848,7 +859,7 @@ void handleAnalogDigitalInput(int port, int value) {
   }
 }
 
-void handleAnalogAnalogInput(int port, int value) {
+void handleAnalogAnalogInput(int port, uint16_t value) {
 
   if ( value != lastAnalogAnalogResult[port] ) {
     Serial.print(F("a"));
@@ -1026,8 +1037,10 @@ void printDebug_s_port_value () {
 void setup() {
   for ( uint8_t i = 0; i < N_LASTRESULT; i ++ ) {
     lastResult[i] = 2;
+
+    // provide values which are 'undefined'
     lastAnalogAnalogResult[i] = 0xffff;
-    lastAnalogDigitalResult[i] = 0xffff;
+    lastAnalogDigitalResult[i] = 0xff;
 
     state_cnt  [i] = COUNTER_STATE_START;
   }
@@ -4543,7 +4556,7 @@ void loop() {
     setEEPROM();
     if ( debug & 1) {
         Serial.print(F( "cident=") );
-        Serial.println(id);
+        Serial.println((char*) id);
     }
 }
 
@@ -4560,7 +4573,7 @@ void loop() {
     setEEPROM();
     if ( debug & 1) {
         Serial.print(F( "cident=") );
-        Serial.println(id);
+        Serial.println( (char*) id);
     }
 }
 

@@ -30,7 +30,7 @@ def append( name, module ):
     modules[name] =  module
     
 def has_key(name):
-    return modules.has_key(name) 
+    return name in modules
 
 def get(name):
     return modules[name]

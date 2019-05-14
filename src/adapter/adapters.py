@@ -15,16 +15,19 @@
     # MA 02110, USA
     # ---------------------------------------------------------------------------------------------
 
-import configuration
-#import eventHandler
-import publishSubscribe
 import inspect
 import threading
 import time
 import re
+import sys
 # from spi.manager import SPIManager
-import logging
 
+import configuration
+import traceback
+import publishSubscribe
+
+
+import logging
 logger = logging.getLogger(__name__)
 
 try:
@@ -82,11 +85,11 @@ class Adapter (configuration.AdapterSetting):
         self.scratchInputValueMethod = []
         self.mandatoryAlias = []
         self.scratchInputMethod = []
+        self.name = ''
         
     def setName(self, name): 
         self.name = name       
-        #eventHandler.register("adapter", self.name, self)
-    
+        
     def setOutputs(self, outputs):
         """ inputs is configuration.OutputSetting"""
         self.outputs = outputs
@@ -177,7 +180,7 @@ class Adapter (configuration.AdapterSetting):
         return self._stopEvent.isSet()
 
     def run(self):
-        """default, empty implementation für a run method"""
+        """default, empty implementation f端r a run method"""
         logger.debug(self.name + " adapter.run()")
         pass
     
@@ -218,37 +221,58 @@ class Adapter (configuration.AdapterSetting):
                 #eventHandler.resolveCommand(self, self.name, alias)
                 cnt += 1
         if cnt > 1:
-            logger.error("MULTIPLE SEND, BAD, REALLY BAD")  
+            logger.error("MULTIPLE SEND, avoid this.")  
                   
     def sendValue(self, value):
         """send a numeric or string value"""
         callerName = inspect.stack()[1][3]
-        
-        for ov in self.output_values:
-            if ov.name == callerName:
-                alias = ov.scratchNames[0]
-                topic = "scratch.output.value.{name:s}".format(name=alias)
-                if isinstance(value, str):
-                    publishSubscribe.Pub.publish( topic, { 'name':alias, 'value':value } )
-                elif isinstance(value, unicode):
-                    publishSubscribe.Pub.publish( topic , { 'name':alias, 'value':value } )
-                else:
-                    publishSubscribe.Pub.publish( topic , { 'name':alias, 'value':str(value) } )
+
+        if sys.version_info.major == 2:
+            for ov in self.output_values:
+                if ov.name == callerName:
+                    alias = ov.scratchNames[0]
+                    topic = "scratch.output.value.{name:s}".format(name=alias)
+                    if isinstance(value, str):
+                        publishSubscribe.Pub.publish( topic, { 'name':alias, 'value':value } )
+                    elif isinstance(value, unicode):
+                        publishSubscribe.Pub.publish( topic , { 'name':alias, 'value':value } )
+                    else:
+                        publishSubscribe.Pub.publish( topic , { 'name':alias, 'value':str(value) } )
+                        
+        if sys.version_info.major >= 3:
+            for ov in self.output_values:
+                if ov.name == callerName:
+                    alias = ov.scratchNames[0]
+                    topic = "scratch.output.value.{name:s}".format(name=alias)
+                    if isinstance(value, str):
+                        publishSubscribe.Pub.publish( topic, { 'name':alias, 'value':value } )
+                    else:
+                        publishSubscribe.Pub.publish( topic , { 'name':alias, 'value':str(value) } )
 
     def sendValueByName(self, name,  value):
         """send a numeric or string value"""
         callerName = name
         
-        for ov in self.output_values:
-            if ov.name == callerName:
-                alias = ov.scratchNames[0]
-                topic = "scratch.output.value.{name:s}".format(name=alias)
-                if isinstance(value, str):
-                    publishSubscribe.Pub.publish( topic, { 'name':alias, 'value':value } )
-                elif isinstance(value, unicode):
-                    publishSubscribe.Pub.publish( topic, { 'name':alias, 'value':value } )
-                else:
-                    publishSubscribe.Pub.publish( topic, { 'name':alias, 'value':str(value) } )
+        if sys.version_info.major == 2:
+            for ov in self.output_values:
+                if ov.name == callerName:
+                    alias = ov.scratchNames[0]
+                    topic = "scratch.output.value.{name:s}".format(name=alias)
+                    if isinstance(value, str):
+                        publishSubscribe.Pub.publish( topic, { 'name':alias, 'value':value } )
+                    elif isinstance(value, unicode):
+                        publishSubscribe.Pub.publish( topic, { 'name':alias, 'value':value } )
+                    else:
+                        publishSubscribe.Pub.publish( topic, { 'name':alias, 'value':str(value) } )
+        if sys.version_info.major >= 3:
+            for ov in self.output_values:
+                if ov.name == callerName:
+                    alias = ov.scratchNames[0]
+                    topic = "scratch.output.value.{name:s}".format(name=alias)
+                    if isinstance(value, str):
+                        publishSubscribe.Pub.publish( topic, { 'name':alias, 'value':value } )
+                    else:
+                        publishSubscribe.Pub.publish( topic, { 'name':alias, 'value':str(value) } )
 
     def resolveCommand(self, message):
         """events of the adapters entry point"""
@@ -256,7 +280,16 @@ class Adapter (configuration.AdapterSetting):
         for x in self.scratchInputMethod:
             if x['name'] == message['name']:
                 f = x['method']
-                f()
+                #
+                # catch Exception. IN case there are errors, this protects the system from 
+                # being stopped from vad adapter coding.
+                #
+                try:
+                    f()
+                except Exception as e:
+                    traceback.print_exc()
+                    logger.error("resolveCommand {e:s} {m:s}".format(e=str(e), m=str(message)))
+                    
                 
     def resolveValue(self, message):
         """value events of the adapters entry point"""
@@ -268,7 +301,15 @@ class Adapter (configuration.AdapterSetting):
                 
             if x['name'] == message['name']:
                 f = x['method']
-                f( message['value'] )
+                #
+                # catch Exception. IN case there are errors, this protects the system from 
+                # being stopped from vad adapter coding.
+                #
+                try:
+                    f( message['value'] )
+                except Exception as e:
+                    traceback.print_exc()
+                    logger.error("resolveValue {e:s} {m:s}".format(e=str(e), m=str(message)))
     
     def configureCommandResolver (self, commandResolver):
         for _input in self.inputs:
@@ -296,7 +337,13 @@ class Adapter (configuration.AdapterSetting):
             
     def isTrue(self, value):
         """ helper method to convert strings to true/false"""
-        v = value.upper()
+        if isinstance(value, int):
+            if value == 0:
+                return False
+            else:
+                return True
+            
+        v = str(value).upper().strip()
         if v == '1':
             return True
         if v == 'TRUE':
@@ -312,7 +359,13 @@ class Adapter (configuration.AdapterSetting):
     
     def isFalse(self, value):
         """ helper method to convert strings to true/false"""
-        v = value.upper()
+        if isinstance(value, int):
+            if value == 0:
+                return True
+            else:
+                return False
+            
+        v = str(value).upper().strip()
         if v == '0':
             return True
         if v == 'FALSE':
@@ -320,6 +373,29 @@ class Adapter (configuration.AdapterSetting):
         if v == 'N':
             return True
         if v == 'NO':
+            return True
+        if v == 'LOW':
+            return True
+        
+        return False 
+
+    def isHigh(self, value):
+        """helper method to convert strings to level indicators"""
+        v = str(value).upper().strip()
+        if v == '1':
+            return True
+        if v == 'ON':
+            return True
+        if v == 'HIGH':
+            return True
+        return False 
+    
+    def isLow(self, value):
+        """helper method to convert strings to level indicators"""
+        v = str(value).upper().strip()
+        if v == '0':
+            return True
+        if v == 'OFF':
             return True
         if v == 'LOW':
             return True
@@ -384,7 +460,7 @@ class Adapter (configuration.AdapterSetting):
     
     def getOptionalParameter(self, name, default):
         """return a property. as this is optional, a default value needs to be provided"""
-        if self.parameters.has_key(name):
+        if name in self.parameters:
             return self.parameters[ name]
         return default
               
@@ -523,13 +599,9 @@ class I2CAdapter (Adapter):
     """base functionality for I2C based adapters"""
     i2cManager = None
     
-    # cached parameters, converted to int from the hashtable provided.
-    int_i2c_bus = 0 
-    int_i2c_address = 0 
-
     def __init__(self):
-       
         Adapter.__init__(self)
+        self.bus = None
         
     def setActive (self, state):
         if debug:
@@ -644,3 +716,13 @@ class I2CAdapter (Adapter):
         except IOError as err:
             logger.error("readList " + str(err))
             return None
+
+
+class NANOAdapter (Adapter):
+    """base functionality for Arduino Uno, Nano adapter. UNO_Adapter (adapter.adapters.Adapter.UNO_Adapter)
+       The very funktion is small, but it allows to establish a manager to handle connections."""
+
+    def __init__(self):
+        
+        Adapter.__init__(self)
+        

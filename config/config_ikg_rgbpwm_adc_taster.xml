@@ -22,8 +22,8 @@
 
 	<description>
 		Arbeitskreis Physical Computing am IKG.
-		Ansteuerung einer RGB mit PWM, 2 ADC-Kanäle und 1 Taster.
-		Die Ansteuerung der LED wird 'rgb_A_R', 'rgb_A_G', 'rgb_A_B' für scratch bezeichnet, 0..100.
+		Ansteuerung einer RGB mit PWM, 2 ADC-Kanテ、le und 1 Taster.
+		Die Ansteuerung der LED wird 'rgb_A_R', 'rgb_A_G', 'rgb_A_B' fテシr scratch bezeichnet, 0..100.
 		
 		Jumper: 
 			gesetzt:
@@ -37,7 +37,7 @@
     
 	<!-- =========================================================================== -->
 	<adapter class='adapter.gpio.GpioOutputPWM'  name='rgb_A_G'>
-		<description>RGB_A, GRÜN</description>
+		<description>RGB_A, GRテ廸</description>
 
 		<gpio port='GPIO25'>
 			<default dir='OUT'  default='high' />

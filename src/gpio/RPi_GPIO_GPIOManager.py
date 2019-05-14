@@ -33,31 +33,31 @@ except ImportError:
 
 class PWM:
     """registers gpio to pwm relations"""
-    
-    gpio = None
-    pwm = None
+
     def __init__(self, gpio, pwm):
         self.gpio = gpio
         self.pwm = pwm
 
 class PWMRegistry:
-    pwms = None
-    
+
     def __init__(self):
         self.pwms = {}
     
     def get(self, gpio):
-        return self.pwms[gpio]
+        try:
+            return self.pwms[gpio]
+        except KeyError:
+            logger.error("unknown key '{k:s}', have {ak:s}".format(k=str(gpio), ak=str(self.pwms)))
     
     def append(self, pwm):
         self.pwms[pwm.gpio] = pwm    
-        
+    
+    def remove(self, gpio):
+        del( self.pwms[ gpio] )
+            
 class GPIOManager:
     """GPIOManager for RPi.GPIO library"""
-    
-    pwms = None
-    usageCount = 0
-    
+
     def __init__(self):
         GPIO.setmode(GPIO.BCM)
         self.pwms = PWMRegistry()
@@ -73,7 +73,7 @@ class GPIOManager:
             self.usageCount += 1
             # print("activate GPIO system")
             GPIO.setwarnings(True)
-            logger.info(GPIO.VERSION)
+            logger.info( "RPI.GPIO Version {v:s}".format( v = GPIO.VERSION) )
         else:
             self.usageCount -= 1
             if self.usageCount == 0:
@@ -127,7 +127,7 @@ class GPIOManager:
     def resetPWM(self, gpio):
         pwm = self.pwms.get(gpio)
         pwm.pwm.stop()
-            
+        self.pwms.remove( gpio)    
     
     def setGPIOActive(self, gpioConfiguration, state):
         logger.debug("RPi_GPIO, setGPIOActive %s, %s", 'state', str(state))

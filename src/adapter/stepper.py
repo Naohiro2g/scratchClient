@@ -366,19 +366,19 @@ class UnipolarStepperModule(adapter.adapters.GPIOAdapter):
                 x = 0.001
             self._speed = x 
         except Exception as e:
-            logger.error("exception setting 'speed': {e:s}".format(e=e) )
+            logger.error("{name:s}: exception setting 'speed': {e:s}".format(name= self.name, e=value) )
             pass        
         
     def target(self, value):
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug("{name:s}: target={value:s}".format(name= self.name, value=value) )
         try:
-            self._target = long(value)
+            self._target = int(value)
         except Exception as e:
             try:
-                self._target = long(float(value))
+                self._target = int(float(value))
             except Exception as e:
-                logger.error("exception setting 'target': {e:s}".format(e=e) )
+                logger.error("{name:s}: exception setting 'target': {e:s}".format(name= self.name, e=value) )
                 pass 
     
     def complete(self):

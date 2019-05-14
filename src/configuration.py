@@ -21,6 +21,7 @@
 import xml.etree.ElementTree as ET
 import inspect
 import sys
+import traceback
 
 import errorManager
 import publishSubscribe
@@ -29,7 +30,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 debug = False
-
     
 class GPIORegistry:
     """Dynamic mapping from port names to GPIO-Numbers"""
@@ -59,8 +59,7 @@ class GPIORegistry:
             if version == '1.0':
                 pass
             else:
-                print("configuration, unknown 'version' attribute {version:s}.".format(version=version))
-                sys.exit(10)
+                errorManager.append("configuration, unknown 'version' attribute {version:s}.".format(version=version))
                 
             self.gpios = {}
             
@@ -71,35 +70,35 @@ class GPIORegistry:
                 if 'port' == child.tag:
                     portNumber = child.attrib['gpioNumber']
                     name = child.attrib['name']
+                    
+                    # doublecheck if the names are duplicates
+                    if name in self.gpios:
+                        pNumber = self.gpios[name]
+                        
+                        if int(portNumber) != pNumber:
+                            errorManager.append("configuration, portMapping, multiple name with different gpioNumber {name:s}.".format(name=name))
+                    
                     self.gpios[name] = int( portNumber )
             
     def getPort(self, portName):
         if portName in self.gpios:
             return self.gpios[portName]
-        errorManager.append("gpio name in config file not known: %s", portName)
+        errorManager.append("gpio name in config file not known: {pn:s}".format(pn= portName) )
         return None
         
 allEverGpios = None
 
 class AdapterSetting:
-    name = None
-    className = None
-
     def __init__(self, name, classname):
         self.name = name
         self.classname = classname
 
 class InputSetting:
-    name = None
-    scratchNames = None
     def __init__(self, name):
         self.name = name
         self.scratchNames= []
 
 class OutputSetting:
-    name = None
-    scratchNames = None
-    
     def __init__(self, name):
         self.name = name
         self.scratchNames= []
@@ -107,15 +106,20 @@ class OutputSetting:
 class GpioSetting:
     """gpio configuration settings, data only. Direction, pullup, initial state (low,high)"""
     
-    pull = None
-    dir = None
-    default = None
-    
     def __init__(self):
-        pass
+        self.dir = None
+        self.pull = None
+        self.default = None
     
     def __str__(self):
-        return "GpioSetting[dir={dir:s}, pull={pull:s}, default={default:s}]".format(dir=self.dir, pull=self.pull, default=self.default)
+        di = "dir="
+        pu = "pull="
+        de = "default="
+        if self.dir != None: di += self.dir 
+        if self.pull != None: pu += self.pull 
+        if self.default != None: de += self.default 
+        r = "GpioSetting[{dir:s}, {pull:s}, {deff:s}]".format(dir=di, pull=pu, deff=de)
+        return r
 
 class GpioConfiguration:
     """gpio configuration, data only"""
@@ -260,6 +264,11 @@ class ConfigManager:
         if self.configDelegate == None:
             return
         self.configDelegate.configureCommandResolver(scratchSender)
+        
+    def unconfigureCommandResolver (self, scratchSender):
+        if self.configDelegate == None:
+            return
+        self.configDelegate.unconfigureCommandResolver(scratchSender)
 
     def getAdapters(self):
         if self.configDelegate == None:
@@ -394,10 +403,16 @@ class ConfigManager_1_0:
                 for command in _outputs.scratchNames:
                     publishSubscribe.Pub.subscribe("scratch.output.value.{name:s}".format(name=command), scratchSender.sendValue)
 
-    # def configureGuiServer (self, guiServer):
-    #     for adapter in self.adapters:
-    #         adapter.guiServer = guiServer
-            
+    def unconfigureCommandResolver (self, scratchSender):
+        for adapter in self.adapters:
+            for _outputs in adapter.outputs:
+                for command in _outputs.scratchNames:
+                    publishSubscribe.Pub.unsubscribe("scratch.output.command.{name:s}".format(name=command), scratchSender.sendCommand)
+                    
+            for _outputs in adapter.output_values:
+                for command in _outputs.scratchNames:
+                    publishSubscribe.Pub.unsubscribe("scratch.output.value.{name:s}".format(name=command), scratchSender.sendValue)
+
             
     def registerGuiOnCommandResolver(self, gui, scratchSender):
 #         for adapter in self.adapters:
@@ -453,6 +468,7 @@ class ConfigManager_1_0:
                     #print ('import statement', "success")
                         
                 except ImportError as e:
+                    traceback.format_exc()
                     print ('----------', e)
                     errorManager.append("{lc:s}: no adapter class '{cn:s}' (ImportError)".format(lc=loggingContext, cn= className))
                     continue
@@ -468,6 +484,7 @@ class ConfigManager_1_0:
                     #print ('cStatement', "success", lAdapter) 
                     
                 except AttributeError as e:
+                    traceback.format_exc()
                     print ('----------', e)
                     errorManager.append("{lc:s}: no adapter class '{cn:s}' (AttributeError)".format(lc=loggingContext, cn= className))
                     continue
@@ -708,13 +725,18 @@ class ConfigManager_1_0:
                 else:
                     errorManager .append("{lc:s}: unknown output_value name '{command:s}' (check adapter python code)".format(lc=loggingContext, command=methodName))     
             
+            elif 'extension' == tle.tag:
+                # already handled
+                pass
+            
+            elif 'parameter' == tle.tag:
+                # already handled
+                pass
+            
             else:
                 # if adapter provides a 'setXmlConfig-Method, pass the current node to the adapter and let it grab 
                 # whatever needed.
-                if moduleMethods.hasMethod("setXMLConfig"):
-                    pass
-                else:
-                    errorManager.append("{lc:s}: unknown tag '{tag:s}'".format(lc=loggingContext, tag=tle.tag))
+                errorManager.appendWarning("{lc:s}: unknown tag, ignored '{tag:s}'".format(lc=loggingContext, tag=tle.tag))
                      
 
         adapter.addInputs(adapter_inputs)
