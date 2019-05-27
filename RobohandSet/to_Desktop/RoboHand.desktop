@@ -1,0 +1,12 @@
+[Desktop Entry]
+Encoding=UTF-8
+Version=1.0
+Type=Application
+Exec=/home/pi/scratchClientRoboHand.py
+Icon=scratch
+Terminal=true
+Name=RobotHand
+Comment=Control Robot Hand via Scratch
+Categories=Application;Education;Development;
+MimeType=application/x-scratch-project
+Name[ja_JP]=RoboHand
