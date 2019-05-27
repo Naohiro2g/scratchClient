@@ -161,3 +161,62 @@ class Pico2Wave_Adapter (adapter.adapters.Adapter):
         else:
             self.queue.put(value)
         
+# --------------------------------------------------------------------------------------
+
+class Julius_Adapter (adapter.adapters.Adapter):
+    """Interface to Julius """
+    mandatoryParameters = { 'queue.max' : 30 }
+
+    queue = None
+    
+    def __init__(self):
+        self.queue = helper.abstractQueue.AbstractQueue()
+       
+        adapter.adapters.Adapter.__init__(self)
+
+    def setActive (self, state):
+        if debug:
+            print(self.name, "setActive", state)
+        #
+        # use default implementation to start up SPI
+        #
+        adapter.adapters.Adapter.setActive(self, state);
+
+
+    def run(self):
+        while not(self.stopped()):
+            try:        
+                value = self.queue.get(True, 0.1)
+                
+                # replace some characters to prevent security problems
+                
+                value = value.replace("'" ,  ' ')
+                value = value.replace("|" ,  ' ')
+                value = value.replace("$" ,  ' ')
+                value = value.replace("\\",  ' ')
+                value = value.replace("/" ,  ' ')
+                value = value.replace(">" ,  ' ')
+                value = value.replace("<" ,  ' ')
+                value = value.replace("&" ,  ' ')
+                value = value.replace("~" ,  ' ')
+                value = value.replace("*" ,  ' ')
+                
+                cmd = "echo '{val:s}' | /home/pi/jsay2.sh".format(val=value)
+                if debug:
+                    print ( cmd )
+                return_code = subprocess.call( cmd, shell=True )
+            except helper.abstractQueue.AbstractQueue.Empty:
+                pass
+            except Exception as e:
+                logger.warn(e)
+               
+    def speech(self, value):
+        if debug:
+            print("speech", value)
+
+        if self.queue.qsize() > int(self.parameters['queue.max']):
+            
+            logger.warn('{name:s}: queue is full, value discarded {val}'.format(name=self.name, val=value))
+        else:
+            self.queue.put(value)
+        
